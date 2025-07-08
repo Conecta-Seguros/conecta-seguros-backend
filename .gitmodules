@@ -1,0 +1,24 @@
+[submodule "api-gateway"]
+	path = api-gateway
+	url = https://github.com/Conecta-Seguros/api-gateway.git
+[submodule "clients-service"]
+	path = clients-service
+	url = https://github.com/Conecta-Seguros/clients-service.git
+[submodule "products-services"]
+	path = products-services
+	url = https://github.com/Conecta-Seguros/products-services.git
+[submodule "payments-service"]
+	path = payments-service
+	url = https://github.com/Conecta-Seguros/payments-service.git
+[submodule "news-service"]
+	path = news-service
+	url = https://github.com/Conecta-Seguros/news-service.git
+[submodule "reports-service"]
+	path = reports-service
+	url = https://github.com/Conecta-Seguros/reports-service.git
+[submodule "batch-processor"]
+	path = batch-processor
+	url = https://github.com/Conecta-Seguros/batch-processor.git
+[submodule "auth-service"]
+	path = auth-service
+	url = https://github.com/Conecta-Seguros/auth-service.git
