@@ -4,9 +4,6 @@
 [submodule "clients-service"]
 	path = clients-service
 	url = https://github.com/Conecta-Seguros/clients-service.git
-[submodule "products-service"]
-	path = products-service
-	url = https://github.com/Conecta-Seguros/products-services.git
 [submodule "payments-service"]
 	path = payments-service
 	url = https://github.com/Conecta-Seguros/payments-service.git
