@@ -22,3 +22,6 @@
 [submodule "products-service"]
 	path = products-service
 	url = https://github.com/Conecta-Seguros/products-service.git
+[submodule "discovery-server"]
+	path = discovery-server
+	url = https://github.com/Conecta-Seguros/discovery-server.git
