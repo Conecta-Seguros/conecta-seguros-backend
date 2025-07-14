@@ -5,78 +5,90 @@ services:
     container_name: users_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: users_db
     ports:
       - "5433:5432"
     volumes:
       - users_db_data:/var/lib/postgresql/data
       - ./init-scripts/users_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   clients_db:
     image: postgres:latest
     container_name: clients_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: clients_db
     ports:
       - "5434:5432"
     volumes:
       - clients_db_data:/var/lib/postgresql/data
       - ./init-scripts/clients_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   products_db:
     image: postgres:latest
     container_name: products_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: products_db
     ports:
       - "5435:5432"
     volumes:
       - products_db_data:/var/lib/postgresql/data
       - ./init-scripts/products_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   payments_db:
     image: postgres:latest
     container_name: payments_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: payments_db
     ports:
       - "5436:5432"
     volumes:
       - payments_db_data:/var/lib/postgresql/data
       - ./init-scripts/payments_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   news_db:
     image: postgres:latest
     container_name: news_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: news_db
     ports:
       - "5437:5432"
     volumes:
       - news_db_data:/var/lib/postgresql/data
       - ./init-scripts/news_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   reports_db:
     image: postgres:latest
     container_name: reports_db
     environment:
       POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: reports_db
     ports:
       - "5438:5432"
     volumes:
       - reports_db_data:/var/lib/postgresql/data
       - ./init-scripts/reports_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - conecta_seguros_network
 
   redis_cache:
     image: redis:latest
