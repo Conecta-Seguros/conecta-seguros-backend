@@ -90,6 +90,20 @@ services:
     networks:
       - conecta_seguros_network
 
+  keycloak_db:
+    image: postgres:latest
+    container_name: keycloak_db
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: keycloak_db
+    ports:
+      - "5439:5432"
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - conecta_seguros_network
+
   redis_cache:
     image: redis:latest
     container_name: redis_cache
@@ -100,6 +114,29 @@ services:
     volumes:
       - redis_cache_data:/data
     command: redis-server --appendonly no
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    command: ["start-dev"]
+    ports:
+      - "8181:8181"
+    expose:
+      - "8181"
+    depends_on:
+      - keycloak_db
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: keycloak_db
+      DB_DATABASE: keycloak_db
+      DB_PORT: 5439
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HTTP_PORT: 8181
+    networks:
+      - conecta_seguros_network
 
 volumes:
     users_db_data:
@@ -113,6 +150,8 @@ volumes:
     news_db_data:
         driver: local
     reports_db_data:
+        driver: local
+    keycloak_db_data:
         driver: local
     redis_cache_data:
         driver: local
