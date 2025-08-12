@@ -10,9 +10,8 @@ CREATE TABLE IF NOT EXISTS seccional (
     nombre VARCHAR(100) NOT NULL,
     vigencia_inicio DATE NOT NULL,
     vigencia_fin DATE NOT NULL,
-    aseguradora_id INTEGER NOT NULL REFERENCES aseguradora(id),
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
-    UNIQUE (nombre, aseguradora_id)
+    UNIQUE (nombre)
     );
 
 CREATE TABLE IF NOT EXISTS departamento (
@@ -101,7 +100,6 @@ CREATE TABLE IF NOT EXISTS cliente_seccional_historial (
     );
 
 -- Índices
-CREATE INDEX IF NOT EXISTS idx_seccional_aseguradora ON seccional(aseguradora_id);
 CREATE INDEX IF NOT EXISTS idx_departamento_seccional ON departamento(seccional_id);
 CREATE INDEX IF NOT EXISTS idx_municipio_departamento ON municipio(departamento_id);
 CREATE INDEX IF NOT EXISTS idx_sede_municipio ON sede(municipio_id);
