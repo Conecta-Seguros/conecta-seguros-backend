@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS archivos_descuentos (
     excedentes INTEGER NOT NULL DEFAULT 0,
     faltantes INTEGER NOT NULL DEFAULT 0,
     no_llegaron INTEGER NOT NULL DEFAULT 0,
-    estado VARCHAR(20) NOT NULL DEFAULT 'PROCESANDO',
+    estado VARCHAR(20) NOT NULL DEFAULT 'CARGADO',
     ruta_archivo VARCHAR(500),
     contenido BYTEA,
     checksum_sha256 VARCHAR(64),
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS archivos_descuentos (
     tipo_mime VARCHAR(100),
     fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     usuario_carga INTEGER NOT NULL,
-    CONSTRAINT chk_arch_desc_estado CHECK (estado IN ('PROCESANDO','PROCESADO','ERROR'))
+    CONSTRAINT chk_arch_desc_estado CHECK (estado IN ('CARGADO', 'PROCESANDO','PROCESADO','ERROR'))
     );
 
 CREATE TABLE IF NOT EXISTS errores_procesamiento (
