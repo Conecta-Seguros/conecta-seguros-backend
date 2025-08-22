@@ -118,7 +118,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: keycloak
-    command: ["start-dev"]
+    command: [ "start-dev" ]
     ports:
       - "8181:8181"
     expose:
@@ -126,35 +126,37 @@ services:
     depends_on:
       - keycloak_db
     environment:
-      DB_VENDOR: POSTGRES
-      DB_ADDR: keycloak_db
-      DB_DATABASE: keycloak_db
-      DB_PORT: 5439
-      DB_USER: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
+      KC_DB_USERNAME: ${DB_USERNAME}
+      KC_DB_PASSWORD: ${DB_PASSWORD}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HTTP_PORT: 8181
+      KC_HTTP_ENABLED: true
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+
     networks:
       - conecta_seguros_network
 
 volumes:
-    users_db_data:
-        driver: local
-    clients_db_data:
-        driver: local
-    products_db_data:
-        driver: local
-    payments_db_data:
-        driver: local
-    news_db_data:
-        driver: local
-    reports_db_data:
-        driver: local
-    keycloak_db_data:
-        driver: local
-    redis_cache_data:
-        driver: local
+  users_db_data:
+    driver: local
+  clients_db_data:
+    driver: local
+  products_db_data:
+    driver: local
+  payments_db_data:
+    driver: local
+  news_db_data:
+    driver: local
+  reports_db_data:
+    driver: local
+  keycloak_db_data:
+    driver: local
+  redis_cache_data:
+    driver: local
 
 networks:
   conecta_seguros_network:
