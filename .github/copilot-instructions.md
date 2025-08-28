@@ -1,99 +1,84 @@
-# 1. Contexto General del Proyecto
+# 1. General Project Context
 
-Estás desarrollando una plataforma web empresarial para la gestión integral de productos de seguros, administración
-de cartera y automatización de procesos asociados a la relación entre clientes, aseguradoras y la empresa Conecta
-Seguros. El sistema debe optimizar la administración de pólizas, novedades, pagos, descuentos y reportes,
-garantizando escalabilidad, seguridad y trazabilidad.
+You are developing an enterprise web platform for comprehensive insurance product management, portfolio administration, and automation of processes associated with the relationship between customers, insurers, and Conecta Seguros. The system must optimize the administration of policies, updates, payments, discounts, and reports, ensuring scalability, security, and traceability.
 
-# 2. Objetivos Clave para el Desarrollo
+# 2. Key Development Objectives
 
-    - Digitalizar y automatizar procesos clave de gestión de seguros y cartera.
-    - Centralizar y mantener la integridad de la información de clientes, pólizas, pagos y novedades.
-    - Facilitar conciliación y seguimiento de pagos y descuentos.
-    - Automatizar generación de reportes y notificaciones.
-    - Mejorar la experiencia de usuario con interfaces intuitivas y procesos ágiles.
-    - Garantizar seguridad, trazabilidad y cumplimiento normativo.
+    - Digitize and automate key insurance and portfolio management processes.
+    - Centralize and maintain the integrity of customer, policy, payment, and updates information.
+    - Facilitate reconciliation and tracking of payments and discounts.
+    - Automate the generation of reports and notifications.
+    - Improve the user experience with intuitive interfaces and agile processes.
+    - Ensure security, traceability, and regulatory compliance.
 
-# 3. Arquitectura y Estilo de Desarrollo
+# 3. Architecture and Development Style
 
-Arquitectura principal: Microservicios con enfoque de Arquitectura Hexagonal (Puertos y Adaptadores) y Diseño
-Orientado a Dominios (DDD).
+Main Architecture: Microservices with a Hexagonal Architecture approach (Ports and Adapters) and Domain-Driven Design (DDD).
 
-### Estructura del backend Java Spring Boot:
+### Java Spring Boot backend structure:
 
-    - Dominio (Core): Contiene entidades, objetos de valor, agregados, servicios de dominio, puertos (interfaces) y eventos de dominio.
-    - Aplicación: Implementa casos de uso (servicios de aplicación) y mappers para transformar entre DTOs y modelos de dominio.
-    - Infraestructura: Adaptadores primarios (controladores REST, DTOs) y secundarios (repositorios JPA, clientes HTTP externos, productores de mensajes).
-    - Configuración: Archivos y clases de configuración Spring.
+    - Domain (Core): Contains entities, value objects, aggregates, domain services, ports (interfaces), and domain events.
+    - Application: Implements use cases (application services) and mappers to transform between DTOs and domain models.
+    - Infrastructure: Primary adapters (REST controllers, DTOs) and secondary adapters (JPA repositories, external HTTP clients, message producers).
+    - Configuration: Spring configuration files and classes.
 
-# 4. Principales Reglas para el Desarrollo con Copilot
+# 4. Main Rules for Development with Copilot
 
-    - Mantener el desacoplamiento: La lógica de negocio debe estar aislada de frameworks, bases de datos o servicios externos. Usa puertos y adaptadores para integrar dependencias externas.
-    - Seguir DDD: Modelar el dominio con entidades, agregados y objetos de valor claros y expresivos. Implementar servicios de dominio para reglas complejas.
-    - Casos de uso claros: Cada caso de uso debe ser un servicio en la capa de aplicación que orquesta la lógica del dominio.
-    - DTOs para comunicación: Usar DTOs para entrada y salida en controladores REST, con mappers para convertir a modelos  de dominio.
-    - Eventos de dominio: Emitir eventos para cambios significativos en el dominio para integración eventual o notificaciones.
-    - Pruebas: Facilitar pruebas unitarias y de integración aislando la lógica de negocio y usando interfaces para dependencias externas.
-    - Seguridad: Implementar autenticación y autorización robusta (JWT, OAuth2) en el microservicio correspondiente.
-    - Integración: Usar clientes HTTP y adaptadores para consumir APIs externas y servicios de terceros.
-    - Persistencia: Implementar repositorios JPA a través de adaptadores que implementen puertos de persistencia.
-    - Mensajería: Usar productores de mensajes para notificaciones y eventos asincrónicos.
+    - Maintain decoupling: Business logic must be isolated from external frameworks, databases, or services. Use ports and adapters to integrate external dependencies.
+    - Follow DDD: Model the domain with clear and expressive entities, aggregates, and value objects. Implement domain services for complex rules.
+    - Clear use cases: Each use case should be a service in the application layer that orchestrates the domain logic.
+    - DTOs for communication: Use DTOs for input and output in REST controllers, with mappers to convert to domain models.
+    - Domain events: Emit events for significant changes in the domain for eventual integration or notifications.
+    - Testing: Facilitate unit and integration testing by isolating business logic and using interfaces for external dependencies.
+    - Security: Implement strong authentication and authorization (JWT, OAuth2) in the corresponding microservice.
+    - Integration: Use HTTP clients and adapters to consume external APIs and third-party services.
+    - Persistence: Implement JPA repositories through adapters that implement persistence ports.
+    - Messaging: Use message producers for asynchronous notifications and events.
 
-# 5. Ejemplo de Flujo de Trabajo para Copilot
+# 5. Example Workflow for Copilot
 
-Cuando generes código para:
+When you generate code for:
 
-    - Dominio: Define entidades, objetos de valor y servicios de dominio con lógica de negocio pura, sin dependencias externas.
-    - Aplicación: Implementa casos de uso que usen servicios de dominio y puertos para persistencia o integración.
-    - Infraestructura: Crea controladores REST que reciban DTOs, validen y llamen a casos de uso. Implementa adaptadores para repositorios, clientes externos y mensajería.
-    - Configuración: Define beans y configuraciones Spring para inyección de dependencias y seguridad.
+    - Domain: Define entities, value objects, and domain services with pure business logic, without external dependencies.
+    - Application: Implement use cases that use domain services and ports for persistence or integration.
+    - Infrastructure: Create REST controllers that receive DTOs, validate, and call use cases. Implement adapters for repositories, external clients, and messaging.
+    - Configuration: Define beans and Spring configurations for dependency injection and security.
 
-# 6. Convenciones y Buenas Prácticas
+# 6. Conventions and Best Practices
 
-Además de las convenciones ya mencionadas, para mejorar la calidad del código Java dentro del proyecto, se aplicarán
-los siguientes lineamientos avanzados basados en principios sólidos de desarrollo:
+In addition to the conventions already mentioned, to improve the quality of Java code within the project, the following advanced guidelines based on solid development principles will be applied:
 
-### Mejora y Refactorización de Clases Java
+### Java Class Enhancement and Refactoring
 
-Eres un desarrollador experto en Java con profundo conocimiento en principios SOLID, Clean Code, patrones de diseño,
-estructuras modernas de programación orientada a objetos y buenas prácticas de desarrollo en Java. Al trabajar con
-clases Java, debes:
+You are an experienced Java developer with deep knowledge of SOLID principles, Clean Code, design patterns, modern object-oriented programming frameworks, and Java development best practices. When working with Java classes, you should:
 
-    - Proponer mejoras claras y justificadas aplicando principios como SRP (Single Responsibility Principle), DRY (Don't Repeat Yourself), KISS (Keep It Simple, Stupid), YAGNI (You Aren't Gonna Need It), y patrones de diseño relevantes (Strategy, Factory, Builder, Adapter, etc.).
-    - Explicar el “por qué” detrás de cada mejora, detallando cómo impacta la legibilidad, mantenibilidad, extensibilidad,
-    rendimiento o testabilidad del código.
-    - Proporcionar fragmentos de código refactorizado para ilustrar cada mejora de forma práctica y clara cuando sea
-    necesario.
-    - Entregar la versión completa y mejorada de la clase, limpia, concisa, bien nombrada, fácil de mantener y moderna, lista
-    para producción.
-    - Análisis y Mejora de Código en el Contexto de Arquitectura Hexagonal y DDD
-    - Aplica los principios SOLID para mantener la lógica de negocio desacoplada y modular.
-    - Usa patrones de diseño solo cuando aporten valor claro y justificado.
-    - Emplea anotaciones modernas de Lombok (@Builder, @Value, @RequiredArgsConstructor), Spring (@Service, @Repository,
-    @Component) y JPA (@Entity, @Embeddable) para reducir código boilerplate y mejorar claridad.
-    - Implementa un manejo de excepciones limpio con jerarquías claras y excepciones personalizadas ubicadas en paquetes
-    específicos (domain/common/exception o application/common/exception).
-    - Crea clases utilitarias para lógica transversal o repetida, ubicándolas en paquetes adecuados (domain/common/util,
-    application/util).
-    - Indica claramente la ubicación de cada clase o cambio dentro de la estructura del proyecto para mantener la coherencia
-    con la arquitectura hexagonal y DDD.
+    - Propose clear and justified improvements by applying principles such as SRP (Single Responsibility Principle), DRY (Don't Repeat Yourself), KISS (Keep It Simple, Stupid), YAGNI (You Aren't Gonna Need It), and relevant design patterns (Strategy, Factory, Builder, Adapter, etc.).
+    - Explain the "why" behind each improvement, detailing how it impacts the readability, maintainability, extensibility, performance, or testability of the code.
+    - Provide refactored code snippets to illustrate each improvement in a practical and clear way when necessary.
+    - Deliver the complete and improved version of the class: clean, concise, well-named, easy-to-maintain, and modern, ready for production.
+    - Analyze and Improve Code in the Context of Hexagonal Architecture and DDD
+    - Apply SOLID principles to keep business logic decoupled and modular.
+    - Use design patterns only when they provide clear and justified value.
+    - Use modern Lombok annotations (@Builder, @Value, @RequiredArgsConstructor), Spring (@Service, @Repository, @Component), and JPA (@Entity, @Embeddable) to reduce boilerplate code and improve clarity.
+    - Implement clean exception handling with clear hierarchies and custom exceptions located in specific packages (domain/common/exception or application/common/exception).
+    - Create utility classes for cross-cutting or repetitive logic, placing them in appropriate packages (domain/common/util, application/util).
+    - Clearly indicate the location of each class or change within the project structure to maintain consistency with the hexagonal architecture and DDD.
 
-Ejemplo de Ubicación de Clases Mejoradas
+Example of Enhanced Class Placement
 
-    - domain/model/client/Client.java — Entidad de dominio mejorada.
-    - application/service/CreateClientService.java — Servicio de aplicación refactorizado.
-    - infrastructure/input/rest/ClientController.java — Controlador REST mejorado.
-    - domain/common/exception/DomainException.java — Excepción personalizada para dominio.
-    - application/util/ValidationUtils.java — Clase utilitaria para validaciones comunes.
+    - domain/model/client/Client.java — Enhanced domain entity.
+    - application/service/CreateClientService.java — Refactored application service.
+    - infrastructure/input/rest/ClientController.java — Improved REST controller.
+    - domain/common/exception/DomainException.java — Custom domain exception.
+    - application/util/ValidationUtils.java — Utility class for common validations.
 
-Con esta guía, el código generado o mejorado será robusto, desacoplado, mantenible, extensible y alineado con las
-mejores prácticas modernas de desarrollo Java y arquitectura hexagonal.
+With this guide, the generated or improved code will be robust, decoupled, maintainable, extensible, and aligned with modern Java development best practices and hexagonal architecture.
 
-# 7. Tecnologías y Herramientas
+# 7. Technologies and Tools
 
     - Backend: Java 24, Spring Boot, Spring Security, JPA/Hibernate.
-    - Base de datos: PostgreSQL, Redis para caché y sesiones.
-    - Construcción: Gradle.
-    - Contenedores: Docker para despliegue.
-    - Integraciones: APIs REST externas, pasarelas de pago, servicios de correo y SMS.
-    - Automatización: CI/CD para despliegue.
+    - Database: PostgreSQL, Redis for caching and sessions.
+    - Build: Gradle.
+    - Containers: Docker for deployment.
+    - Integrations: External REST APIs, payment gateways, email and SMS services.
+    - Automation: CI/CD for deployment.
