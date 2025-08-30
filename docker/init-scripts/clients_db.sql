@@ -73,20 +73,18 @@ CREATE TABLE IF NOT EXISTS clientes (
 
 CREATE TABLE IF NOT EXISTS asegurados (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apellido VARCHAR(100),
-    cedula VARCHAR(20) NOT NULL,
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+    tipo_asegurado VARCHAR(20) NOT NULL CHECK (tipo_asegurado IN ('CLIENTE', 'TERCERO')),
+    cliente_asegurado_id INTEGER REFERENCES clientes(id),
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (cliente_id, cedula)
+    UNIQUE (cliente_id, tipo_asegurado, cliente_asegurado_id)
     );
 
-CREATE TABLE IF NOT EXISTS asegurado_relaciones (
-    asegurado_id INTEGER NOT NULL REFERENCES asegurados(id) ON DELETE CASCADE,
-    relacionado_asegurado_id INTEGER NOT NULL REFERENCES asegurados(id) ON DELETE CASCADE,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (asegurado_id, relacionado_asegurado_id),
-    CONSTRAINT chk_autorelacion_asegurado CHECK (asegurado_id <> relacionado_asegurado_id)
+CREATE TABLE IF NOT EXISTS asegurado_tercero_detalle (
+    asegurado_id INTEGER PRIMARY KEY REFERENCES asegurados(id) ON DELETE CASCADE,
+    nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100),
+    cedula VARCHAR(20) NOT NULL
     );
 
 CREATE TABLE IF NOT EXISTS cliente_seccional_historial (
@@ -105,14 +103,20 @@ CREATE INDEX IF NOT EXISTS idx_municipio_departamento ON municipio(departamento_
 CREATE INDEX IF NOT EXISTS idx_sede_municipio ON sede(municipio_id);
 CREATE INDEX IF NOT EXISTS idx_sede_seccional ON sede(seccional_id);
 CREATE INDEX IF NOT EXISTS idx_juzgado_sede ON juzgado(sede_id);
+CREATE INDEX IF NOT EXISTS idx_juzgado_municipio ON juzgado(municipio_id);
 
 CREATE INDEX IF NOT EXISTS idx_clientes_cedula ON clientes(cedula);
 CREATE INDEX IF NOT EXISTS idx_clientes_seccional ON clientes(seccional_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_departamento ON clientes(departamento_id);
 CREATE INDEX IF NOT EXISTS idx_clientes_municipio ON clientes(municipio_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_sede ON clientes(sede_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_juzgado ON clientes(juzgado_id);
 CREATE INDEX IF NOT EXISTS idx_clientes_correo ON clientes(correo);
+CREATE INDEX IF NOT EXISTS idx_clientes_estado ON clientes(estado);
+CREATE INDEX IF NOT EXISTS idx_clientes_seccional_estado ON clientes(seccional_id, estado);
 
-CREATE INDEX IF NOT EXISTS idx_asegurados_cliente ON asegurados(cliente_id);
-CREATE INDEX IF NOT EXISTS idx_asegurados_cedula ON asegurados(cedula);
-
-CREATE INDEX IF NOT EXISTS idx_asegurado_relaciones_a ON asegurado_relaciones(asegurado_id);
-CREATE INDEX IF NOT EXISTS idx_asegurado_relaciones_b ON asegurado_relaciones(relacionado_asegurado_id);
+CREATE INDEX IF NOT EXISTS idx_asegurados_cliente_id ON asegurados(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_asegurados_tipo ON asegurados(tipo_asegurado);
+CREATE INDEX IF NOT EXISTS idx_asegurados_cliente_asegurado_id ON asegurados(cliente_asegurado_id);
+CREATE INDEX IF NOT EXISTS idx_asegurados_cliente_tipo ON asegurados(cliente_id, tipo_asegurado);
+CREATE INDEX IF NOT EXISTS idx_tercero_cedula ON asegurado_tercero_detalle(cedula);
