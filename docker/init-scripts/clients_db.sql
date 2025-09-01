@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS asegurados (
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     tipo_asegurado VARCHAR(20) NOT NULL CHECK (tipo_asegurado IN ('CLIENTE', 'TERCERO')),
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (cliente_id, tipo_asegurado, cliente_asegurado_id)
+    UNIQUE (cliente_id, tipo_asegurado)
     );
 
 CREATE TABLE IF NOT EXISTS asegurado_tercero_detalle (
