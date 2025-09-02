@@ -73,15 +73,19 @@ CREATE TABLE IF NOT EXISTS vehiculos (
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_planes_tipo_nombre ON planes_producto(tipo, nombre);
+
 CREATE INDEX IF NOT EXISTS idx_productos_tipo ON productos(tipo);
 CREATE INDEX IF NOT EXISTS idx_productos_plan ON productos(plan_id);
+
 CREATE INDEX IF NOT EXISTS idx_polizas_numero ON polizas(numero);
 CREATE INDEX IF NOT EXISTS idx_polizas_aseguradora ON polizas(aseguradora_id);
 CREATE INDEX IF NOT EXISTS idx_polizas_vigencias ON polizas(vigencia_fin, vigencia_inicio);
+
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_cliente ON productos_cliente(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_poliza ON productos_cliente(poliza_id);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_asegurado ON productos_cliente(asegurado_id);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_estado ON productos_cliente(estado);
+
 CREATE INDEX IF NOT EXISTS idx_vehiculos_placa ON vehiculos(placa);
 CREATE INDEX IF NOT EXISTS idx_vehiculos_asegurado ON vehiculos(asegurado_id);
 CREATE INDEX IF NOT EXISTS idx_vehiculos_prod_cliente ON vehiculos(productos_cliente_id);
