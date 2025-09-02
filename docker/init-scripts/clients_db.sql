@@ -75,8 +75,7 @@ CREATE TABLE IF NOT EXISTS asegurados (
     id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     tipo_asegurado VARCHAR(20) NOT NULL CHECK (tipo_asegurado IN ('CLIENTE', 'TERCERO')),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (cliente_id, tipo_asegurado)
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
 CREATE TABLE IF NOT EXISTS asegurado_tercero_detalle (
@@ -116,5 +115,6 @@ CREATE INDEX IF NOT EXISTS idx_clientes_seccional_estado ON clientes(seccional_i
 
 CREATE INDEX IF NOT EXISTS idx_asegurados_cliente_id ON asegurados(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_asegurados_tipo ON asegurados(tipo_asegurado);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unq_asegurado_cliente_self ON asegurados(cliente_id) WHERE tipo_asegurado = 'CLIENTE';
 CREATE INDEX IF NOT EXISTS idx_asegurados_cliente_tipo ON asegurados(cliente_id, tipo_asegurado);
 CREATE INDEX IF NOT EXISTS idx_tercero_cedula ON asegurado_tercero_detalle(cedula);
