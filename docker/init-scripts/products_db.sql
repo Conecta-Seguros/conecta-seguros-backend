@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS productos_cliente (
     fecha_fin DATE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_cancelacion TIMESTAMP,
+    motivo_cancelacion TEXT,
+    usuario_creacion INTEGER,
+    usuario_modificacion INTEGER,
     CONSTRAINT chk_pc_valores CHECK (valor_anual >= 0 AND valor_cuota_mensual >= 0),
     CONSTRAINT chk_pc_fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
     CONSTRAINT chk_pc_estado CHECK (estado IN ('ACTIVO','CANCELADO','VIGENTE','PENDIENTE','SUSPENDIDO'))
