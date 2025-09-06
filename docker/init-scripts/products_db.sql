@@ -5,15 +5,7 @@ CREATE TABLE IF NOT EXISTS planes_producto (
     descripcion TEXT,
     cobertura_monto NUMERIC(14,2),
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
-    CONSTRAINT chk_planes_tipo CHECK (tipo IN ('SALUD','VIDA','OTRO')),
-    CONSTRAINT chk_planes_nombre_por_tipo CHECK (
-    (tipo = 'SALUD' AND nombre IN ('EVOLUCIONA','GLOBAL','CLASICO','SALUD_PARA_TODOS'))
-    OR (tipo = 'VIDA' AND nombre IN ('PLAN_A','PLAN_B','PLAN_C', 'PLAN_D', 'PLAN_E', 'PLAN_F', 'PLAN_G'))
-    OR (tipo = 'OTRO')
-    ),
-    CONSTRAINT chk_planes_cobertura_por_tipo CHECK ((tipo = 'VIDA' AND cobertura_monto IS NOT NULL AND cobertura_monto > 0)
-    OR (tipo = 'SALUD' AND cobertura_monto IS NULL)),
-    CONSTRAINT chk_planes_estado CHECK (estado IN ('ACTIVO','INACTIVO','DESCONTINUADO')),
+    CONSTRAINT chk_planes_estado CHECK (estado IN ('ACTIVO','INACTIVO')),
     UNIQUE (tipo, nombre)
     );
 
