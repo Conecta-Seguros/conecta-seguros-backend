@@ -25,32 +25,31 @@ CREATE TABLE IF NOT EXISTS polizas (
     id SERIAL PRIMARY KEY,
     numero VARCHAR(50) UNIQUE NOT NULL,
     producto_id INTEGER NOT NULL REFERENCES productos(id),
-    aseguradora_id INTEGER NOT NULL,
+    aseguradora_nit VARCHAR(20) NOT NULL,
+    cliente_cedula VARCHAR(20) NOT NULL,
     vigencia_inicio DATE NOT NULL,
     vigencia_fin DATE NOT NULL,
+    valor_total_anual NUMERIC(12,2) NOT NULL CHECK (valor_total_anual >= 0),
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    usuario_creacion INTEGER,
+    usuario_modificacion INTEGER,
     CONSTRAINT chk_polizas_fechas CHECK (vigencia_inicio <= vigencia_fin),
     CONSTRAINT chk_polizas_estado CHECK (estado IN ('ACTIVO','CANCELADA','VENCIDA','SUSPENDIDA'))
     );
 
 CREATE TABLE IF NOT EXISTS productos_cliente (
     id SERIAL PRIMARY KEY,
-    cliente_id INTEGER NOT NULL,
-    poliza_id INTEGER NOT NULL REFERENCES polizas(id),
-    asegurado_id INTEGER NOT NULL,
+    poliza_id INTEGER NOT NULL REFERENCES polizas(id) ON DELETE CASCADE,
+    asegurado_cedula VARCHAR(20) NOT NULL,
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
-    valor_anual NUMERIC(12,2) NOT NULL,
-    valor_cuota_mensual NUMERIC(10,2) NOT NULL,
-    fecha_inicio DATE NOT NULL,
-    fecha_fin DATE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_cancelacion TIMESTAMP,
     motivo_cancelacion TEXT,
     usuario_creacion INTEGER,
     usuario_modificacion INTEGER,
-    CONSTRAINT chk_pc_valores CHECK (valor_anual >= 0 AND valor_cuota_mensual >= 0),
-    CONSTRAINT chk_pc_fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
-    CONSTRAINT chk_pc_estado CHECK (estado IN ('ACTIVO','CANCELADO','VIGENTE','PENDIENTE','SUSPENDIDO'))
+    CONSTRAINT chk_pc_estado CHECK (estado IN ('ACTIVO','CANCELADO','VIGENTE','PENDIENTE','SUSPENDIDO')),
+    UNIQUE (poliza_id, asegurado_cedula)
     );
 
 CREATE TABLE IF NOT EXISTS vehiculos (
@@ -58,8 +57,8 @@ CREATE TABLE IF NOT EXISTS vehiculos (
     placa VARCHAR(10) UNIQUE NOT NULL,
     marca VARCHAR(50),
     modelo VARCHAR(50),
-    asegurado_id INTEGER NOT NULL,
-    productos_cliente_id INTEGER REFERENCES productos_cliente(id),
+    asegurado_cedula VARCHAR(20) NOT NULL,
+    productos_cliente_id INTEGER REFERENCES productos_cliente(id) ON DELETE CASCADE,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -70,14 +69,14 @@ CREATE INDEX IF NOT EXISTS idx_productos_tipo ON productos(tipo);
 CREATE INDEX IF NOT EXISTS idx_productos_plan ON productos(plan_id);
 
 CREATE INDEX IF NOT EXISTS idx_polizas_numero ON polizas(numero);
-CREATE INDEX IF NOT EXISTS idx_polizas_aseguradora ON polizas(aseguradora_id);
+CREATE INDEX IF NOT EXISTS idx_polizas_aseguradora_nit ON polizas(aseguradora_nit);
+CREATE INDEX IF NOT EXISTS idx_polizas_cliente_cedula ON polizas(cliente_cedula);
 CREATE INDEX IF NOT EXISTS idx_polizas_vigencias ON polizas(vigencia_fin, vigencia_inicio);
 
-CREATE INDEX IF NOT EXISTS idx_productos_cliente_cliente ON productos_cliente(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_poliza ON productos_cliente(poliza_id);
-CREATE INDEX IF NOT EXISTS idx_productos_cliente_asegurado ON productos_cliente(asegurado_id);
+CREATE INDEX IF NOT EXISTS idx_productos_cliente_asegurado_cedula ON productos_cliente(asegurado_cedula);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_estado ON productos_cliente(estado);
 
 CREATE INDEX IF NOT EXISTS idx_vehiculos_placa ON vehiculos(placa);
-CREATE INDEX IF NOT EXISTS idx_vehiculos_asegurado ON vehiculos(asegurado_id);
+CREATE INDEX IF NOT EXISTS idx_vehiculos_asegurado_cedula ON vehiculos(asegurado_cedula);
 CREATE INDEX IF NOT EXISTS idx_vehiculos_prod_cliente ON vehiculos(productos_cliente_id);
