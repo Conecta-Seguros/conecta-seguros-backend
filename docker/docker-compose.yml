@@ -1,20 +1,5 @@
 services:
 
-  users_db:
-    image: postgres:latest
-    container_name: users_db
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: users_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - users_db_data:/var/lib/postgresql/data
-      - ./init-scripts/users_db.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - conecta_seguros_network
-
   clients_db:
     image: postgres:latest
     container_name: clients_db

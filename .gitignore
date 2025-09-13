@@ -40,3 +40,6 @@ out/
 
 ### Environment ###
 *.env
+
+### IA's ###
+QWEN.md
