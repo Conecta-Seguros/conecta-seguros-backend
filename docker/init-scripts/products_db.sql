@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     vigencia_inicio DATE NOT NULL,
     vigencia_fin DATE NOT NULL,
     valor_total_anual NUMERIC(12,2) NOT NULL CHECK (valor_total_anual >= 0),
+    valor_primera_cuota NUMERIC(12,2),
+    tiene_cuota_prorrateada BOOLEAN DEFAULT FALSE,
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     usuario_creacion INTEGER,
@@ -62,6 +64,17 @@ CREATE TABLE IF NOT EXISTS vehiculos (
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+CREATE TABLE IF NOT EXISTS detalle_cuotas (
+    id SERIAL PRIMARY KEY,
+    poliza_id INTEGER NOT NULL REFERENCES polizas(id) ON DELETE CASCADE,
+    numero_cuota INTEGER NOT NULL,
+    valor_cuota NUMERIC(12,2) NOT NULL,
+    fecha_vencimiento DATE NOT NULL,
+    estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+    fecha_pago DATE,
+    CONSTRAINT chk_dc_estado CHECK (estado IN ('PENDIENTE','PAGADA','VENCIDA'))
+    );
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_planes_tipo_nombre ON planes_producto(tipo, nombre);
 
@@ -72,6 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_polizas_numero ON polizas(numero);
 CREATE INDEX IF NOT EXISTS idx_polizas_aseguradora_nit ON polizas(aseguradora_nit);
 CREATE INDEX IF NOT EXISTS idx_polizas_cliente_cedula ON polizas(cliente_cedula);
 CREATE INDEX IF NOT EXISTS idx_polizas_vigencias ON polizas(vigencia_fin, vigencia_inicio);
+CREATE INDEX IF NOT EXISTS idx_polizas_cuota_prorrateada ON polizas(tiene_cuota_prorrateada);
 
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_poliza ON productos_cliente(poliza_id);
 CREATE INDEX IF NOT EXISTS idx_productos_cliente_asegurado_cedula ON productos_cliente(asegurado_cedula);
@@ -80,3 +94,6 @@ CREATE INDEX IF NOT EXISTS idx_productos_cliente_estado ON productos_cliente(est
 CREATE INDEX IF NOT EXISTS idx_vehiculos_placa ON vehiculos(placa);
 CREATE INDEX IF NOT EXISTS idx_vehiculos_asegurado_cedula ON vehiculos(asegurado_cedula);
 CREATE INDEX IF NOT EXISTS idx_vehiculos_prod_cliente ON vehiculos(productos_cliente_id);
+
+CREATE INDEX IF NOT EXISTS idx_detalle_cuotas_poliza ON detalle_cuotas(poliza_id);
+CREATE INDEX IF NOT EXISTS idx_detalle_cuotas_estado ON detalle_cuotas(estado);

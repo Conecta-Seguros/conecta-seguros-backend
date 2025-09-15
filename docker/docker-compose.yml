@@ -126,8 +126,6 @@ services:
       - conecta_seguros_network
 
 volumes:
-  users_db_data:
-    driver: local
   clients_db_data:
     driver: local
   products_db_data:
