@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS polizas (
     tiene_cuota_prorrateada BOOLEAN DEFAULT FALSE,
     estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    usuario_creacion INTEGER,
-    usuario_modificacion INTEGER,
+    usuario_creacion UUID,
+    usuario_modificacion UUID,
     CONSTRAINT chk_polizas_fechas CHECK (vigencia_inicio <= vigencia_fin),
     CONSTRAINT chk_polizas_estado CHECK (estado IN ('ACTIVO','CANCELADA','VENCIDA','SUSPENDIDA'))
     );
