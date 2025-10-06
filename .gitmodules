@@ -22,10 +22,6 @@
 	path = batch-processor
 	url = https://github.com/Conecta-Seguros/batch-processor.git
 	branch = develop
-[submodule "auth-service"]
-	path = auth-service
-	url = https://github.com/Conecta-Seguros/auth-service.git
-	branch = develop
 [submodule "products-service"]
 	path = products-service
 	url = https://github.com/Conecta-Seguros/products-service.git
