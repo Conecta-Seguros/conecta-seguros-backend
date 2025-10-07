@@ -64,17 +64,6 @@ CREATE TABLE IF NOT EXISTS vehiculos (
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
-CREATE TABLE IF NOT EXISTS detalle_cuotas (
-    id SERIAL PRIMARY KEY,
-    poliza_id INTEGER NOT NULL REFERENCES polizas(id) ON DELETE CASCADE,
-    numero_cuota INTEGER NOT NULL,
-    valor_cuota NUMERIC(12,2) NOT NULL,
-    fecha_vencimiento DATE NOT NULL,
-    estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    fecha_pago DATE,
-    CONSTRAINT chk_dc_estado CHECK (estado IN ('PENDIENTE','PAGADA','VENCIDA'))
-    );
-
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_planes_tipo_nombre ON planes_producto(tipo, nombre);
 
