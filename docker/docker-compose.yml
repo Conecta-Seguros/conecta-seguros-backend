@@ -11,7 +11,6 @@ services:
       - "5434:5432"
     volumes:
       - clients_db_data:/var/lib/postgresql/data
-      - ./init-scripts/clients_db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - conecta_seguros_network
 
@@ -26,7 +25,6 @@ services:
       - "5435:5432"
     volumes:
       - products_db_data:/var/lib/postgresql/data
-      - ./init-scripts/products_db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - conecta_seguros_network
 
@@ -41,7 +39,6 @@ services:
       - "5436:5432"
     volumes:
       - payments_db_data:/var/lib/postgresql/data
-      - ./init-scripts/payments_db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - conecta_seguros_network
 
@@ -56,7 +53,6 @@ services:
       - "5437:5432"
     volumes:
       - news_db_data:/var/lib/postgresql/data
-      - ./init-scripts/news_db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - conecta_seguros_network
 
@@ -71,7 +67,6 @@ services:
       - "5438:5432"
     volumes:
       - reports_db_data:/var/lib/postgresql/data
-      - ./init-scripts/reports_db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - conecta_seguros_network
 
