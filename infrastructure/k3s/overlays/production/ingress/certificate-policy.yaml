@@ -1,0 +1,32 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: conecta-seguros-tls
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: conecta-seguros-tls
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/part-of: ingress-stack
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+    conecta.seguros/environment: production
+spec:
+  secretName: conecta-seguros-tls-secret
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  renewBefore: 720h
+  duration: 2160h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  dnsNames:
+    - "conectaseguros.com"
+    - "*.conectaseguros.com"
+    - "*.api.conectaseguros.com"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  revisionHistoryLimit: 3

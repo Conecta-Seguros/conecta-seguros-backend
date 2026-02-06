@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/ingress
+
+labels:
+  - pairs:
+      conecta.seguros/environment: test
+
+# Note: Test Ingress files must use the annotation:
+#   cert-manager.io/cluster-issuer: letsencrypt-staging
