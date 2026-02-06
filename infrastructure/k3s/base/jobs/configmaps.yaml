@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  labels:
+    app.kubernetes.io/name: backup-config
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+data:
+  PGHOST: "postgresql"
+  PGPORT: "5432"
+  PGDATABASE: "conecta_seguros"
+  BACKUP_RETENTION_DAYS: "7"
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: migration-config
+  labels:
+    app.kubernetes.io/name: migration-config
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+data:
+  PGHOST: "postgresql"
+  PGPORT: "5432"
+  FLYWAY_URL: "jdbc:postgresql://postgresql:5432/conecta_seguros"
+  FLYWAY_SCHEMAS: "public"
+
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cleanup-config
+  labels:
+    app.kubernetes.io/name: cleanup-config
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: cluster-operations
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+data:
+  TARGET_NAMESPACES: "default conecta-seguros"

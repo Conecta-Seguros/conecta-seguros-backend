@@ -40,3 +40,4 @@ out/
 
 ### Environment ###
 *.env
+secrets.yaml

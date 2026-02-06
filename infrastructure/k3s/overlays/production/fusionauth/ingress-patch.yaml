@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fusionauth-ingress
+spec:
+  tls:
+    - hosts:
+        - auth.caicedoseguros.com
+      secretName: caicedoseguros-tls-cert
+
+  rules:
+    - host: auth.caicedoseguros.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fusionauth-svc
+                port:
+                  number: 80

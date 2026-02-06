@@ -1,0 +1,112 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-cleanup
+  labels:
+    app.kubernetes.io/name: cluster-cleanup
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/part-of: cluster-operations
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+spec:
+  schedule: "30 3 * * *"
+  timeZone: "America/Bogota"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cluster-cleanup
+        app.kubernetes.io/component: maintenance
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cluster-cleanup
+            app.kubernetes.io/component: maintenance
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: cleanup-runner
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: cleanup
+              image: bitnami/kubectl:sha256-5a4c0e9123bd0ea8afdf4f0f3a7f592e480f6bc04ab35447d798a675b2af12de
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              env:
+                - name: TARGET_NAMESPACES
+                  valueFrom:
+                    configMapKeyRef:
+                      name: cleanup-config
+                      key: TARGET_NAMESPACES
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  echo "[$(date)] Iniciando limpieza del cluster..."
+
+                  for NS in ${TARGET_NAMESPACES}; do
+                    echo "--- Namespace: ${NS} ---"
+
+                    # Eliminar pods en estado Failed/Evicted
+                    FAILED=$(kubectl get pods -n "${NS}" --field-selector=status.phase=Failed -o name 2>/dev/null | wc -l)
+                    if [ "$FAILED" -gt 0 ]; then
+                      kubectl delete pods -n "${NS}" --field-selector=status.phase=Failed
+                      echo "[$(date)] Eliminados ${FAILED} pods fallidos en ${NS}"
+                    fi
+
+                    # Eliminar pods en estado Succeeded (completados)
+                    SUCCEEDED=$(kubectl get pods -n "${NS}" --field-selector=status.phase=Succeeded -o name 2>/dev/null | wc -l)
+                    if [ "$SUCCEEDED" -gt 0 ]; then
+                      kubectl delete pods -n "${NS}" --field-selector=status.phase=Succeeded
+                      echo "[$(date)] Eliminados ${SUCCEEDED} pods completados en ${NS}"
+                    fi
+
+                    # Eliminar Jobs completados hace más de 24h
+                    kubectl get jobs -n "${NS}" -o json 2>/dev/null | \
+                      jq -r '.items[] |
+                        select(.status.completionTime != null) |
+                        select(
+                          (now - (.status.completionTime | fromdateiso8601)) > 86400
+                        ) | .metadata.name' | \
+                    while read -r JOB; do
+                      if [ -n "$JOB" ]; then
+                        kubectl delete job "$JOB" -n "${NS}"
+                        echo "[$(date)] Eliminado job completado: ${JOB} en ${NS}"
+                      fi
+                    done
+                  done
+
+                  echo "[$(date)] Limpieza completada"
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 32Mi

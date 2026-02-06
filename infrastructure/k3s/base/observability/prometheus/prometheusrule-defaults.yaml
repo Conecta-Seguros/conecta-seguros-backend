@@ -1,0 +1,59 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fusionauth-alerts
+  namespace: observability
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: fusionauth
+      interval: 30s
+      rules:
+        - alert: FusionAuthDown
+          expr: up{job="fusionauth"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: identity
+          annotations:
+            summary: "FusionAuth instance {{ $labels.instance }} is down"
+            description: "FusionAuth has been down for more than 2 minutes"
+
+        - alert: FusionAuthHighMemory
+          expr: |
+            (container_memory_usage_bytes{pod=~"fusionauth-.*"} 
+             / container_spec_memory_limit_bytes{pod=~"fusionauth-.*"}) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: identity
+          annotations:
+            summary: "FusionAuth pod {{ $labels.pod }} high memory usage"
+            description: "Memory usage is above 90% (current: {{ $value | humanizePercentage }})"
+
+        - alert: FusionAuthHighErrorRate
+          expr: |
+            (sum(rate(http_server_requests_seconds_count{status=~"5.*",job="fusionauth"}[5m]))
+             / sum(rate(http_server_requests_seconds_count{job="fusionauth"}[5m]))) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            component: identity
+          annotations:
+            summary: "High HTTP error rate in FusionAuth"
+            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+        - alert: FusionAuthHighLatency
+          expr: |
+            histogram_quantile(0.95, 
+              sum(rate(http_server_requests_seconds_bucket{job="fusionauth"}[5m])) by (le)
+            ) > 2
+          for: 10m
+          labels:
+            severity: warning
+            component: identity
+          annotations:
+            summary: "High latency in FusionAuth"
+            description: "95th percentile latency is {{ $value }}s (threshold: 2s)"

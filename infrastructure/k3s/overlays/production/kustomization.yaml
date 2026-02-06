@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: production
+
+resources:
+  - ../../base/platform/namespaces
+  - ../../base/platform/rbac
+  - ../../base/platform/network-policies
+  - ../../base/platform/security
+  - ../../components/postgresql
+  - ../../components/fusionauth
+  - fusionauth/pdb.yaml
+  - postgresql/backup-cronjob.yaml
+
+patches:
+  - path: namespace-patch.yaml
+  - path: fusionauth/deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: fusionauth
+  - path: fusionauth/ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: fusionauth-ingress
+  - path: postgresql/statefulset-patch.yaml
+    target:
+      kind: StatefulSet
+      name: postgresql
+
+replicas:
+  - name: fusionauth
+    count: 2
+
+images:
+  - name: fusionauth/fusionauth-app
+    newTag: "1.62.1"
+
+configMapGenerator:
+  - name: fusionauth-config
+    behavior: merge
+    literals:
+      - FUSIONAUTH_APP_RUNTIME_MODE=production
+      - FUSIONAUTH_APP_URL=https://auth.caicedoseguros.com
+      - FUSIONAUTH_APP_LOG_LEVEL=WARN

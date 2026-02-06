@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: develop
+  labels:
+    environment: develop
+    pod-security.kubernetes.io/enforce: privileged
+  annotations:
+    description: "Local development environment"

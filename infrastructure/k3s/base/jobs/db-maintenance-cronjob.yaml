@@ -1,0 +1,131 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-maintenance
+  labels:
+    app.kubernetes.io/name: postgres-maintenance
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/managed-by: kustomize
+    conecta.seguros/tier: infrastructure
+spec:
+  schedule: "0 4 * * 0"
+  timeZone: "America/Bogota"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-maintenance
+        app.kubernetes.io/component: maintenance
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgres-maintenance
+            app.kubernetes.io/component: maintenance
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: job-runner
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: pg-maintenance
+              image: postgres:18
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              env:
+                - name: PGHOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: backup-config
+                      key: PGHOST
+                - name: PGPORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: backup-config
+                      key: PGPORT
+                - name: PGDATABASE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: backup-config
+                      key: PGDATABASE
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: PGUSER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: PGPASSWORD
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  echo "[$(date)] Iniciando mantenimiento de ${PGDATABASE}..."
+
+                  # VACUUM ANALYZE - actualiza estadísticas y recupera espacio
+                  echo "[$(date)] Ejecutando VACUUM ANALYZE..."
+                  psql -c "VACUUM (VERBOSE, ANALYZE);" 2>&1
+
+                  # Reindex para optimizar índices fragmentados
+                  echo "[$(date)] Ejecutando REINDEX..."
+                  psql -c "REINDEX DATABASE ${PGDATABASE};" 2>&1
+
+                  # Reporte de tablas más grandes
+                  echo "[$(date)] Top 10 tablas por tamaño:"
+                  psql -c "
+                    SELECT schemaname || '.' || tablename AS tabla,
+                           pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS tamano
+                    FROM pg_tables
+                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+                    LIMIT 10;
+                  "
+
+                  # Reporte de índices no usados
+                  echo "[$(date)] Índices con bajo uso (candidatos a eliminación):"
+                  psql -c "
+                    SELECT schemaname || '.' || relname AS tabla,
+                           indexrelname AS indice,
+                           idx_scan AS escaneos
+                    FROM pg_stat_user_indexes
+                    WHERE idx_scan < 10
+                    ORDER BY idx_scan ASC
+                    LIMIT 10;
+                  "
+
+                  echo "[$(date)] Mantenimiento completado"
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
