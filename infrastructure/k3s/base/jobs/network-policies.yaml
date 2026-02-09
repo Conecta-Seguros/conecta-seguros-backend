@@ -83,7 +83,6 @@ spec:
           port: 443
         - protocol: TCP
           port: 6443
-    # DNS
     - ports:
         - protocol: UDP
           port: 53

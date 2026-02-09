@@ -3,13 +3,11 @@ kind: Kustomization
 
 resources:
   - rbac.yaml
-  - configmaps.yaml
   - backup-pvc.yaml
   - backup-cronjob-template.yaml
   - migration-job-template.yaml
   - db-maintenance-cronjob.yaml
   - cleanup-cronjob.yaml
-  - network-policies.yaml
 
 labels:
   - pairs:

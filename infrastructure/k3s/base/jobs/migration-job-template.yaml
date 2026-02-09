@@ -50,44 +50,30 @@ spec:
             limits:
               cpu: 50m
               memory: 32Mi
-          env:
-            - name: PGHOST
-              valueFrom:
-                configMapKeyRef:
-                  name: migration-config
-                  key: PGHOST
-            - name: PGPORT
-              valueFrom:
-                configMapKeyRef:
-                  name: migration-config
-                  key: PGPORT
-            - name: PGUSER
-              valueFrom:
-                secretKeyRef:
-                  name: migration-credentials
-                  key: PGUSER
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: migration-credentials
-                  key: PGPASSWORD
+          envFrom:
+            - secretRef:
+                name: caicedo-seguros-secrets
           command:
             - /bin/sh
             - -ec
             - |
-              echo "[$(date)] Esperando conexión a PostgreSQL en ${PGHOST}:${PGPORT}..."
+              DB_HOST=$(echo "${POSTGRES_FUSIONAUTH_URL}" | sed 's|jdbc:postgresql://||' | cut -d: -f1)
+              DB_PORT="${POSTGRES_FUSIONAUTH_PORT}"
+              DB_USER="${POSTGRES_FUSIONAUTH_ROOT_USER}"
+
+              echo "[$(date)] Waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}..."
+              export PGPASSWORD="${POSTGRES_FUSIONAUTH_ROOT_PASSWORD}"
               RETRIES=30
-              until pg_isready -h "${PGHOST}" -p "${PGPORT}" -U "${PGUSER}" || [ $RETRIES -eq 0 ]; do
-                echo "[$(date)] Reintentando... (${RETRIES} intentos restantes)"
+              until pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" || [ $RETRIES -eq 0 ]; do
+                echo "[$(date)] Retrying... (${RETRIES} attempts remaining)"
                 RETRIES=$((RETRIES - 1))
                 sleep 2
               done
-
               if [ $RETRIES -eq 0 ]; then
-                echo "[$(date)] ERROR: PostgreSQL no disponible"
+                echo "[$(date)] ERROR: PostgreSQL unavailable"
                 exit 1
               fi
-              echo "[$(date)] PostgreSQL disponible"
+              echo "[$(date)] PostgreSQL ready"
       containers:
         - name: flyway
           image: flyway/flyway:12.0.0
@@ -102,32 +88,30 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
-              ephemeral-storage: 64Mi
             limits:
               cpu: 500m
               memory: 512Mi
-              ephemeral-storage: 128Mi
+          envFrom:
+            - secretRef:
+                name: conecta-secrets
           env:
             - name: FLYWAY_URL
               valueFrom:
-                configMapKeyRef:
-                  name: migration-config
-                  key: FLYWAY_URL
+                secretKeyRef:
+                  name: conecta-secrets
+                  key: POSTGRES_FUSIONAUTH_URL
             - name: FLYWAY_USER
               valueFrom:
                 secretKeyRef:
-                  name: migration-credentials
-                  key: PGUSER
+                  name: conecta-secrets
+                  key: POSTGRES_FUSIONAUTH_ROOT_USER
             - name: FLYWAY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: migration-credentials
-                  key: PGPASSWORD
+                  name: conecta-secrets
+                  key: POSTGRES_FUSIONAUTH_ROOT_PASSWORD
             - name: FLYWAY_SCHEMAS
-              valueFrom:
-                configMapKeyRef:
-                  name: migration-config
-                  key: FLYWAY_SCHEMAS
+              value: "public"
             - name: FLYWAY_BASELINE_ON_MIGRATE
               value: "true"
             - name: FLYWAY_VALIDATE_ON_MIGRATE

@@ -3,12 +3,16 @@ kind: Kustomization
 
 resources:
   - ../../../base/jobs
+  - ../../../base/jobs/network-policies.yaml
+
+namespace: production
 
 labels:
   - pairs:
       conecta.seguros/environment: production
 
 patches:
+  # Backup cada 6 horas con más recursos
   - target:
       kind: CronJob
       name: postgres-backup
@@ -29,6 +33,7 @@ patches:
         path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
 
+  # Mantenimiento con más recursos
   - target:
       kind: CronJob
       name: postgres-maintenance
@@ -40,10 +45,14 @@ patches:
         path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
 
+  # Migración con deadline extendido
   - target:
       kind: Job
       name: db-migration
     patch: |
+      - op: replace
+        path: /spec/activeDeadlineSeconds
+        value: 1800
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
         value: "200m"
@@ -56,13 +65,8 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
-      - op: replace
-        path: /spec/activeDeadlineSeconds
-        value: 1800
-      - op: replace
-        path: /spec/template/spec/containers/0/env/5/value
-        value: "false"
 
+  # PVC grande
   - target:
       kind: PersistentVolumeClaim
       name: backup-pvc
@@ -70,34 +74,3 @@ patches:
       - op: replace
         path: /spec/resources/requests/storage
         value: 20Gi
-
-  - target:
-      kind: ConfigMap
-      name: backup-config
-    patch: |
-      - op: replace
-        path: /data/PGHOST
-        value: "postgresql-prod"
-      - op: replace
-        path: /data/PGDATABASE
-        value: "conecta_seguros"
-      - op: replace
-        path: /data/BACKUP_RETENTION_DAYS
-        value: "30"
-  - target:
-      kind: ConfigMap
-      name: migration-config
-    patch: |
-      - op: replace
-        path: /data/PGHOST
-        value: "postgresql-prod"
-      - op: replace
-        path: /data/FLYWAY_URL
-        value: "jdbc:postgresql://postgresql-prod:5432/conecta_seguros"
-  - target:
-      kind: ConfigMap
-      name: cleanup-config
-    patch: |
-      - op: replace
-        path: /data/TARGET_NAMESPACES
-        value: "conecta-seguros ingress-nginx monitoring"

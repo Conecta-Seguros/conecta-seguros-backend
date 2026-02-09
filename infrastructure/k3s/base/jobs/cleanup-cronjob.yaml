@@ -58,36 +58,30 @@ spec:
                 limits:
                   cpu: 200m
                   memory: 128Mi
-              env:
-                - name: TARGET_NAMESPACES
-                  valueFrom:
-                    configMapKeyRef:
-                      name: cleanup-config
-                      key: TARGET_NAMESPACES
+              envFrom:
+                - secretRef:
+                    name: caicedo-seguros-secrets
               command:
                 - /bin/sh
                 - -ec
                 - |
-                  echo "[$(date)] Iniciando limpieza del cluster..."
+                  echo "[$(date)] Starting cluster cleanup..."
 
                   for NS in ${TARGET_NAMESPACES}; do
                     echo "--- Namespace: ${NS} ---"
 
-                    # Eliminar pods en estado Failed/Evicted
                     FAILED=$(kubectl get pods -n "${NS}" --field-selector=status.phase=Failed -o name 2>/dev/null | wc -l)
                     if [ "$FAILED" -gt 0 ]; then
                       kubectl delete pods -n "${NS}" --field-selector=status.phase=Failed
-                      echo "[$(date)] Eliminados ${FAILED} pods fallidos en ${NS}"
+                      echo "[$(date)] Deleted ${FAILED} failed pods in ${NS}"
                     fi
 
-                    # Eliminar pods en estado Succeeded (completados)
                     SUCCEEDED=$(kubectl get pods -n "${NS}" --field-selector=status.phase=Succeeded -o name 2>/dev/null | wc -l)
                     if [ "$SUCCEEDED" -gt 0 ]; then
                       kubectl delete pods -n "${NS}" --field-selector=status.phase=Succeeded
-                      echo "[$(date)] Eliminados ${SUCCEEDED} pods completados en ${NS}"
+                      echo "[$(date)] Deleted ${SUCCEEDED} completed pods in ${NS}"
                     fi
 
-                    # Eliminar Jobs completados hace más de 24h
                     kubectl get jobs -n "${NS}" -o json 2>/dev/null | \
                       jq -r '.items[] |
                         select(.status.completionTime != null) |
@@ -97,12 +91,12 @@ spec:
                     while read -r JOB; do
                       if [ -n "$JOB" ]; then
                         kubectl delete job "$JOB" -n "${NS}"
-                        echo "[$(date)] Eliminado job completado: ${JOB} en ${NS}"
+                        echo "[$(date)] Deleted completed job: ${JOB} in ${NS}"
                       fi
                     done
                   done
 
-                  echo "[$(date)] Limpieza completada"
+                  echo "[$(date)] Cleanup completed"
               volumeMounts:
                 - name: tmp
                   mountPath: /tmp

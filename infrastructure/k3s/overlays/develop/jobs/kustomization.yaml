@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   - ../../../base/jobs
 
+namespace: develop
+
 labels:
   - pairs:
       conecta.seguros/environment: develop
@@ -13,28 +15,28 @@ patches:
       kind: CronJob
       name: postgres-backup
     patch: |
-      - op: replace
+      - op: add
         path: /spec/suspend
         value: true
   - target:
       kind: CronJob
       name: postgres-maintenance
     patch: |
-      - op: replace
+      - op: add
         path: /spec/suspend
         value: true
   - target:
       kind: CronJob
       name: cluster-cleanup
     patch: |
-      - op: replace
+      - op: add
         path: /spec/suspend
         value: true
   - target:
       kind: CronJob
-      name: keycloak-export
+      name: fusionauth-export
     patch: |
-      - op: replace
+      - op: add
         path: /spec/suspend
         value: true
 
@@ -45,40 +47,3 @@ patches:
       - op: replace
         path: /spec/resources/requests/storage
         value: 1Gi
-
-  - target:
-      kind: ConfigMap
-      name: backup-config
-    patch: |
-      - op: replace
-        path: /data/PGHOST
-        value: "postgresql-dev"
-      - op: replace
-        path: /data/BACKUP_RETENTION_DAYS
-        value: "3"
-  - target:
-      kind: ConfigMap
-      name: migration-config
-    patch: |
-      - op: replace
-        path: /data/PGHOST
-        value: "postgresql-dev"
-      - op: replace
-        path: /data/FLYWAY_URL
-        value: "jdbc:postgresql://postgresql-dev:5432/conecta_seguros_dev"
-  - target:
-      kind: ConfigMap
-      name: cleanup-config
-    patch: |
-      - op: replace
-        path: /data/TARGET_NAMESPACES
-        value: "conecta-seguros-dev"
-
-  - target:
-      kind: NetworkPolicy
-    patch: |
-      $patch: delete
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: placeholder

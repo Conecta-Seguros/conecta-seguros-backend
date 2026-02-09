@@ -58,70 +58,51 @@ spec:
                 limits:
                   cpu: "1"
                   memory: 512Mi
-              env:
-                - name: PGHOST
-                  valueFrom:
-                    configMapKeyRef:
-                      name: backup-config
-                      key: PGHOST
-                - name: PGPORT
-                  valueFrom:
-                    configMapKeyRef:
-                      name: backup-config
-                      key: PGPORT
-                - name: PGDATABASE
-                  valueFrom:
-                    configMapKeyRef:
-                      name: backup-config
-                      key: PGDATABASE
-                - name: PGUSER
-                  valueFrom:
-                    secretKeyRef:
-                      name: backup-credentials
-                      key: PGUSER
-                - name: PGPASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: backup-credentials
-                      key: PGPASSWORD
+              envFrom:
+                - secretRef:
+                    name: caicedo-seguros-secrets
               command:
                 - /bin/sh
                 - -ec
                 - |
-                  echo "[$(date)] Iniciando mantenimiento de ${PGDATABASE}..."
+                  DB_HOST=$(echo "${POSTGRES_FUSIONAUTH_URL}" | sed 's|jdbc:postgresql://||' | cut -d: -f1)
+                  DB_PORT="${POSTGRES_FUSIONAUTH_PORT}"
+                  DB_NAME="${POSTGRES_FUSIONAUTH_DB}"
+                  DB_USER="${POSTGRES_FUSIONAUTH_ROOT_USER}"
+                  export PGPASSWORD="${POSTGRES_FUSIONAUTH_ROOT_PASSWORD}"
 
-                  # VACUUM ANALYZE - actualiza estadísticas y recupera espacio
-                  echo "[$(date)] Ejecutando VACUUM ANALYZE..."
-                  psql -c "VACUUM (VERBOSE, ANALYZE);" 2>&1
+                  echo "[$(date)] Starting maintenance on ${DB_NAME} at ${DB_HOST}..."
 
-                  # Reindex para optimizar índices fragmentados
-                  echo "[$(date)] Ejecutando REINDEX..."
-                  psql -c "REINDEX DATABASE ${PGDATABASE};" 2>&1
+                  echo "[$(date)] Running VACUUM ANALYZE..."
+                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
+                    -c "VACUUM (VERBOSE, ANALYZE);" 2>&1
 
-                  # Reporte de tablas más grandes
-                  echo "[$(date)] Top 10 tablas por tamaño:"
-                  psql -c "
+                  echo "[$(date)] Running REINDEX..."
+                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
+                    -c "REINDEX DATABASE ${DB_NAME};" 2>&1
+
+                  echo "[$(date)] Top 10 tables by size:"
+                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -c "
                     SELECT schemaname || '.' || tablename AS tabla,
-                           pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS tamano
+                           pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS size
                     FROM pg_tables
                     WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
                     ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
                     LIMIT 10;
                   "
 
-                  # Reporte de índices no usados
-                  echo "[$(date)] Índices con bajo uso (candidatos a eliminación):"
-                  psql -c "
-                    SELECT schemaname || '.' || relname AS tabla,
-                           indexrelname AS indice,
-                           idx_scan AS escaneos
+                  echo "[$(date)] Low-usage indexes:"
+                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -c "
+                    SELECT schemaname || '.' || relname AS table_name,
+                           indexrelname AS index_name,
+                           idx_scan AS scans
                     FROM pg_stat_user_indexes
                     WHERE idx_scan < 10
                     ORDER BY idx_scan ASC
                     LIMIT 10;
                   "
 
-                  echo "[$(date)] Mantenimiento completado"
+                  echo "[$(date)] Maintenance completed"
               volumeMounts:
                 - name: tmp
                   mountPath: /tmp
