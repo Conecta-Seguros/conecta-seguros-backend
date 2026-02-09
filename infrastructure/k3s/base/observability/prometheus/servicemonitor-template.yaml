@@ -1,12 +1,178 @@
-apiVersion: v1
-kind: ConfigMap
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: title
-data:
-  # kv format
-  key: "value"
-  $actual-config-file$: "name.properties"
+  name: fusionauth
+  labels:
+    app.kubernetes.io/name: fusionauth
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: application
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fusionauth
+  endpoints:
+    - port: http
+      path: /api/prometheus/metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
 
-  # file format
-  name.properties: |
-    field=value1,value2
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cadvisor
+  labels:
+    app.kubernetes.io/name: cadvisor
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cadvisor
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "container_(network_tcp_usage_total|tasks_state|cpu_load_average_10s)"
+          action: drop
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: loki
+  labels:
+    app.kubernetes.io/name: loki
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: promtail
+  labels:
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: promtail
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: spring-cloud-gateway
+  labels:
+    app.kubernetes.io/name: spring-cloud-gateway
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: application
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway-service
+  endpoints:
+    - port: management
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: eureka-server
+  labels:
+    app.kubernetes.io/name: eureka-server
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: application
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eureka-server
+  endpoints:
+    - port: management
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: node-exporter
+  labels:
+    app.kubernetes.io/name: node-exporter
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporter
+  labels:
+    app.kubernetes.io/name: postgres-exporter
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: observability
+    caicedo.seguros/tier: infrastructure
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    any: true

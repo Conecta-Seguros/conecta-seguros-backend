@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: migration
     app.kubernetes.io/part-of: data-management
     app.kubernetes.io/managed-by: kustomize
-    conecta.seguros/tier: infrastructure
+    caicedo.seguros/tier: infrastructure
   annotations:
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
@@ -93,22 +93,22 @@ spec:
               memory: 512Mi
           envFrom:
             - secretRef:
-                name: conecta-secrets
+                name: caicedo-seguros-secrets
           env:
             - name: FLYWAY_URL
               valueFrom:
                 secretKeyRef:
-                  name: conecta-secrets
+                  name: caicedo-seguros-secrets
                   key: POSTGRES_FUSIONAUTH_URL
             - name: FLYWAY_USER
               valueFrom:
                 secretKeyRef:
-                  name: conecta-secrets
+                  name: caicedo-seguros-secrets
                   key: POSTGRES_FUSIONAUTH_ROOT_USER
             - name: FLYWAY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: conecta-secrets
+                  name: caicedo-seguros-secrets
                   key: POSTGRES_FUSIONAUTH_ROOT_PASSWORD
             - name: FLYWAY_SCHEMAS
               value: "public"

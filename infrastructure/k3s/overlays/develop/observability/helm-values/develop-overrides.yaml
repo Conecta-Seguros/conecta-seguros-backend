@@ -1,0 +1,93 @@
+# ============================================================================
+# develop-overrides.yaml - HELM OVERRIDES - DEVELOP
+# Recursos mínimos, retención corta, sin alertas críticas
+# ============================================================================
+# Ruta: infrastructure/k3s/overlays/develop/observability/helm-values/develop-overrides.yaml
+# ============================================================================
+
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 3d
+      retentionSize: "3GB"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 5Gi
+      scrapeInterval: "60s"
+      evaluationInterval: "60s"
+
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 1Gi
+
+  grafana:
+    adminPassword: "admin-dev"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    grafana.ini:
+      server:
+        root_url: "http://grafana.develop.svc.cluster.local:3000"
+      log:
+        level: debug
+
+loki:
+  loki:
+    limits_config:
+      retention_period: 72h
+  singleBinary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
+    persistence:
+      size: 5Gi
+
+promtail:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  config:
+    clients:
+      - url: http://loki.develop.svc.cluster.local:3100/loki/api/v1/push
+        tenant_id: caicedo-seguros
+        external_labels:
+          environment: develop
+
+postgres-exporter:
+  config:
+    datasourceSecret:
+      name: caicedo-secrets

@@ -1,9 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: fusionauth-alerts
-  namespace: observability
+  name: platform-alerts
   labels:
+    app.kubernetes.io/name: platform-alerts
+    app.kubernetes.io/component: alerting
+    app.kubernetes.io/part-of: observability
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
     prometheus: kube-prometheus
     role: alert-rules
 spec:
@@ -18,42 +22,369 @@ spec:
             severity: critical
             component: identity
           annotations:
-            summary: "FusionAuth instance {{ $labels.instance }} is down"
-            description: "FusionAuth has been down for more than 2 minutes"
+            summary: "FusionAuth {{ $labels.instance }} is down"
+            description: "FusionAuth unreachable for 2 minutes"
 
         - alert: FusionAuthHighMemory
           expr: |
-            (container_memory_usage_bytes{pod=~"fusionauth-.*"} 
-             / container_spec_memory_limit_bytes{pod=~"fusionauth-.*"}) > 0.9
+            (container_memory_working_set_bytes{pod=~"fusionauth-.*"}
+             / container_spec_memory_limit_bytes{pod=~"fusionauth-.*"}) > 0.85
           for: 5m
           labels:
             severity: warning
             component: identity
           annotations:
-            summary: "FusionAuth pod {{ $labels.pod }} high memory usage"
-            description: "Memory usage is above 90% (current: {{ $value | humanizePercentage }})"
+            summary: "FusionAuth {{ $labels.pod }} memory {{ $value | humanizePercentage }}"
 
         - alert: FusionAuthHighErrorRate
           expr: |
-            (sum(rate(http_server_requests_seconds_count{status=~"5.*",job="fusionauth"}[5m]))
+            (sum(rate(http_server_requests_seconds_count{status=~"5..",job="fusionauth"}[5m]))
              / sum(rate(http_server_requests_seconds_count{job="fusionauth"}[5m]))) > 0.05
           for: 10m
           labels:
             severity: warning
             component: identity
           annotations:
-            summary: "High HTTP error rate in FusionAuth"
-            description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+            summary: "FusionAuth error rate {{ $value | humanizePercentage }}"
 
         - alert: FusionAuthHighLatency
           expr: |
-            histogram_quantile(0.95, 
-              sum(rate(http_server_requests_seconds_bucket{job="fusionauth"}[5m])) by (le)
-            ) > 2
+            histogram_quantile(0.95,
+              sum(rate(http_server_requests_seconds_bucket{job="fusionauth"}[5m])) by (le)) > 2
           for: 10m
           labels:
             severity: warning
             component: identity
           annotations:
-            summary: "High latency in FusionAuth"
-            description: "95th percentile latency is {{ $value }}s (threshold: 2s)"
+            summary: "FusionAuth p95 latency {{ $value }}s"
+
+        - alert: FusionAuthLoginFailureSpike
+          expr: sum(increase(fusionauth_login_failure_total[5m])) > 50
+          for: 5m
+          labels:
+            severity: warning
+            component: identity
+          annotations:
+            summary: "FusionAuth login failure spike (possible brute force)"
+
+    - name: postgresql
+      interval: 30s
+      rules:
+        - alert: PostgreSQLDown
+          expr: pg_up == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: database
+          annotations:
+            summary: "PostgreSQL {{ $labels.instance }} is down"
+
+        - alert: PostgreSQLHighConnections
+          expr: |
+            sum by (instance) (pg_stat_activity_count)
+             / on (instance) pg_settings_max_connections > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "PostgreSQL connections at {{ $value | humanizePercentage }}"
+
+        - alert: PostgreSQLHighConnectionsCritical
+          expr: |
+            sum by (instance) (pg_stat_activity_count)
+             / on (instance) pg_settings_max_connections > 0.95
+          for: 2m
+          labels:
+            severity: critical
+            component: database
+          annotations:
+            summary: "PostgreSQL connections at {{ $value | humanizePercentage }}"
+
+        - alert: PostgreSQLSlowQueries
+          expr: pg_stat_activity_max_tx_duration{datname!~"template.*"} > 300
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "PostgreSQL slow query on {{ $labels.datname }} (>5min)"
+
+        - alert: PostgreSQLDeadlocks
+          expr: increase(pg_stat_database_deadlocks{datname!~"template.*"}[5m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "PostgreSQL deadlocks on {{ $labels.datname }}"
+
+        - alert: PostgreSQLReplicationLag
+          expr: pg_replication_lag > 30
+          for: 5m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "PostgreSQL replication lag {{ $value }}s"
+
+        - alert: PostgreSQLCacheHitRateLow
+          expr: |
+            pg_stat_database_blks_hit{datname!~"template.*"}
+             / (pg_stat_database_blks_hit{datname!~"template.*"}
+                + pg_stat_database_blks_read{datname!~"template.*"}) < 0.95
+          for: 15m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "PostgreSQL cache hit rate {{ $value | humanizePercentage }}"
+
+    - name: node
+      interval: 30s
+      rules:
+        - alert: NodeHighCPU
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+          for: 10m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "Node {{ $labels.instance }} CPU {{ $value }}%"
+
+        - alert: NodeHighCPUCritical
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+          for: 5m
+          labels:
+            severity: critical
+            component: infrastructure
+          annotations:
+            summary: "Node {{ $labels.instance }} CPU {{ $value }}%"
+
+        - alert: NodeHighMemory
+          expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "Node {{ $labels.instance }} memory {{ $value | humanizePercentage }}"
+
+        - alert: NodeHighMemoryCritical
+          expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.95
+          for: 5m
+          labels:
+            severity: critical
+            component: infrastructure
+          annotations:
+            summary: "Node {{ $labels.instance }} memory {{ $value | humanizePercentage }}"
+
+        - alert: NodeDiskSpaceLow
+          expr: |
+            (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+             / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: infrastructure
+          annotations:
+            summary: "Disk {{ $labels.mountpoint }} at {{ $value | humanizePercentage }}"
+
+        - alert: NodeDiskSpaceCritical
+          expr: |
+            (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+             / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) > 0.95
+          for: 5m
+          labels:
+            severity: critical
+            component: infrastructure
+          annotations:
+            summary: "Disk {{ $labels.mountpoint }} at {{ $value | humanizePercentage }}"
+
+    - name: kubernetes
+      interval: 30s
+      rules:
+        - alert: KubePodCrashLooping
+          expr: max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) >= 1
+          for: 5m
+          labels:
+            severity: critical
+            component: kubernetes
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }} CrashLoopBackOff"
+
+        - alert: KubePodNotReady
+          expr: |
+            sum by (namespace, pod) (
+              max by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown"}) * on (namespace, pod)
+              group_left(owner_kind) topk by (namespace, pod) (1, max by (namespace, pod, owner_kind) (kube_pod_owner{owner_kind!="Job"}))
+            ) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }} not ready for 10m"
+
+        - alert: KubeDeploymentReplicasMismatch
+          expr: kube_deployment_spec_replicas != kube_deployment_status_ready_replicas
+          for: 10m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
+
+        - alert: KubePVCAlmostFull
+          expr: kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "PVC {{ $labels.persistentvolumeclaim }} at {{ $value | humanizePercentage }}"
+
+        - alert: KubeContainerOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: warning
+            component: kubernetes
+          annotations:
+            summary: "{{ $labels.container }} OOMKilled in {{ $labels.pod }}"
+
+    - name: spring-boot
+      interval: 30s
+      rules:
+        - alert: SpringBootServiceDown
+          expr: up{job=~".*-service"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: application
+          annotations:
+            summary: "Service {{ $labels.job }} is down"
+
+        - alert: SpringBootHighHeapUsage
+          expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: "{{ $labels.job }} heap at {{ $value | humanizePercentage }}"
+
+        - alert: SpringBootHighErrorRate
+          expr: |
+            sum by (job) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+             / sum by (job) (rate(http_server_requests_seconds_count[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: "{{ $labels.job }} error rate {{ $value | humanizePercentage }}"
+
+        - alert: SpringBootHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum by (job, le) (rate(http_server_requests_seconds_bucket[5m]))) > 3
+          for: 10m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: "{{ $labels.job }} p95 latency {{ $value }}s"
+
+        - alert: SpringBootThreadPoolExhausted
+          expr: tomcat_threads_busy_threads / tomcat_threads_config_max_threads > 0.9
+          for: 5m
+          labels:
+            severity: critical
+            component: application
+          annotations:
+            summary: "{{ $labels.job }} thread pool at {{ $value | humanizePercentage }}"
+
+        - alert: EurekaServiceDeregistered
+          expr: changes(eureka_instances_total[5m]) < -1
+          for: 2m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: "Service deregistered from Eureka"
+
+    - name: backup-jobs
+      interval: 60s
+      rules:
+        - alert: BackupJobFailed
+          expr: kube_job_status_failed{job_name=~"postgres-backup-.*"} > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Backup job {{ $labels.job_name }} failed"
+
+        - alert: BackupJobNotRunRecently
+          expr: time() - max(kube_cronjob_status_last_successful_time{cronjob="postgres-backup"}) > 86400
+          for: 10m
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: "No successful backup in 24h"
+
+    - name: certificates
+      interval: 300s
+      rules:
+        - alert: CertificateExpiringSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 604800
+          for: 1h
+          labels:
+            severity: warning
+            component: tls
+          annotations:
+            summary: "Certificate {{ $labels.name }} expires in {{ $value | humanizeDuration }}"
+
+        - alert: CertificateExpiryCritical
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 172800
+          for: 10m
+          labels:
+            severity: critical
+            component: tls
+          annotations:
+            summary: "Certificate {{ $labels.name }} expires in {{ $value | humanizeDuration }}"
+
+    - name: logging
+      interval: 60s
+      rules:
+        - alert: LokiDown
+          expr: up{job=~"loki.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: logging
+          annotations:
+            summary: "Loki is down. Logs may be lost"
+
+    - name: blackbox
+      interval: 30s
+      rules:
+        - alert: EndpointDown
+          expr: probe_success == 0
+          for: 3m
+          labels:
+            severity: critical
+            component: endpoint
+          annotations:
+            summary: "Endpoint {{ $labels.instance }} is down"
+
+        - alert: SSLCertificateExpiringSoon
+          expr: probe_ssl_earliest_cert_expiry - time() < 604800
+          for: 1h
+          labels:
+            severity: warning
+            component: tls
+          annotations:
+            summary: "SSL for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"

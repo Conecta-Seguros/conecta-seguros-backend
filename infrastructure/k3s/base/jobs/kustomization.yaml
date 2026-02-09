@@ -11,4 +11,4 @@ resources:
 
 labels:
   - pairs:
-      conecta.seguros/managed-by: platform-team
+      caicedo.seguros/managed-by: platform-team

@@ -1,0 +1,145 @@
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 30d
+      retentionSize: "40GB"
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 50Gi
+      scrapeInterval: "15s"
+      evaluationInterval: "15s"
+
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 5Gi
+
+    config:
+      global:
+        resolve_timeout: 5m
+        # smtp_smarthost: 'smtp.gmail.com:587'
+        # smtp_from: 'alertmanager@conectaseguros.com'
+        # smtp_auth_username: 'alertmanager@conectaseguros.com'
+        # smtp_auth_password: 'app-password-aqui'
+      route:
+        group_by: ['alertname', 'namespace', 'severity']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+        receiver: 'default'
+        routes:
+          - receiver: 'critical'
+            match:
+              severity: critical
+            repeat_interval: 30m
+          - receiver: 'warning'
+            match:
+              severity: warning
+            repeat_interval: 4h
+      receivers:
+        - name: 'default'
+          # webhook_configs:
+          #   - url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ'
+        - name: 'critical'
+          # webhook_configs:
+          #   - url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ'
+          #     send_resolved: true
+          # email_configs:
+          #   - to: 'ops@conectaseguros.com'
+          #     send_resolved: true
+        - name: 'warning'
+          # webhook_configs:
+          #   - url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ'
+
+  grafana:
+    admin:
+      existingSecret: grafana-admin-credentials
+      userKey: admin-user
+      passwordKey: admin-password
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    grafana.ini:
+      server:
+        root_url: "https://grafana.caicedoseguros.com"
+      log:
+        level: warn
+
+loki:
+  loki:
+    limits_config:
+      retention_period: 720h  # 30 días
+      ingestion_rate_mb: 20
+      ingestion_burst_size_mb: 40
+    server:
+      log_level: warn
+  singleBinary:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+    persistence:
+      size: 50Gi
+
+promtail:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  config:
+    clients:
+      - url: http://loki.production.svc.cluster.local:3100/loki/api/v1/push
+        tenant_id: conecta-seguros
+        batchwait: 1s
+        batchsize: 2097152
+        timeout: 15s
+        backoff_config:
+          min_period: 500ms
+          max_period: 5m
+          max_retries: 15
+        external_labels:
+          environment: production
+
+blackbox-exporter:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+postgres-exporter:
+  serviceMonitor:
+    interval: 15s

@@ -6,7 +6,7 @@ resources:
 
 labels:
   - pairs:
-      conecta.seguros/environment: test
+      caicedo.seguros/environment: test
 
 # Note: Test Ingress files must use the annotation:
 #   cert-manager.io/cluster-issuer: letsencrypt-staging

@@ -1,0 +1,42 @@
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 7d
+      retentionSize: "5GB"
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 10Gi
+
+  alertmanager:
+    alertmanagerSpec:
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 1Gi
+
+  grafana:
+    adminPassword: "admin-test"
+    grafana.ini:
+      server:
+        root_url: "https://grafana.test.caicedoseguros.com"
+
+loki:
+  loki:
+    limits_config:
+      retention_period: 168h
+  singleBinary:
+    persistence:
+      size: 10Gi
+
+promtail:
+  config:
+    clients:
+      - url: http://loki.test.svc.cluster.local:3100/loki/api/v1/push
+        tenant_id: caicedo-seguros
+        external_labels:
+          environment: test

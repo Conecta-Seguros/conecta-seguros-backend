@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/component: tls
     app.kubernetes.io/part-of: ingress-stack
     app.kubernetes.io/managed-by: kustomize
-    conecta.seguros/tier: infrastructure
-    conecta.seguros/environment: develop
+    caicedo.seguros/tier: infrastructure
+    caicedo.seguros/environment: develop
 spec:
   selfSigned: {}

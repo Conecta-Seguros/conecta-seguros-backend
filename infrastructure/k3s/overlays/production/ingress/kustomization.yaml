@@ -7,7 +7,7 @@ resources:
 
 labels:
   - pairs:
-      conecta.seguros/environment: production
+      caicedo.seguros/environment: production
 
 # Note: Production Ingress files must use the annotation:
 #   cert-manager.io/cluster-issuer: letsencrypt-production

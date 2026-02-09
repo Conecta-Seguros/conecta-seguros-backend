@@ -1,0 +1,88 @@
+config:
+  datasource:
+    host: ""
+    user: ""
+    password: ""
+    database: ""
+    sslmode: disable
+
+  datasourceSecret:
+    name: postgres-exporter-credentials
+    key: DATA_SOURCE_URI
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    conecta.seguros/tier: infrastructure
+
+extraQueries: |
+  # Tamaño de tablas
+  pg_table_size:
+    query: |
+      SELECT schemaname, relname,
+             pg_total_relation_size(schemaname || '.' || relname) as total_bytes
+      FROM pg_stat_user_tables
+      ORDER BY pg_total_relation_size(schemaname || '.' || relname) DESC
+      LIMIT 20
+    metrics:
+      - schemaname:
+          usage: "LABEL"
+          description: "Schema name"
+      - relname:
+          usage: "LABEL"
+          description: "Table name"
+      - total_bytes:
+          usage: "GAUGE"
+          description: "Total size of table in bytes"
+
+  # Conexiones activas por estado
+  pg_stat_activity_state:
+    query: |
+      SELECT state, datname, count(*) as count
+      FROM pg_stat_activity
+      WHERE state IS NOT NULL
+      GROUP BY state, datname
+    metrics:
+      - state:
+          usage: "LABEL"
+          description: "Connection state"
+      - datname:
+          usage: "LABEL"
+          description: "Database name"
+      - count:
+          usage: "GAUGE"
+          description: "Number of connections"
+
+  # Lock waits
+  pg_locks_waiting:
+    query: |
+      SELECT datname, count(*) as count
+      FROM pg_locks
+      WHERE NOT granted
+      GROUP BY datname
+    metrics:
+      - datname:
+          usage: "LABEL"
+          description: "Database name"
+      - count:
+          usage: "GAUGE"
+          description: "Number of locks waiting"
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

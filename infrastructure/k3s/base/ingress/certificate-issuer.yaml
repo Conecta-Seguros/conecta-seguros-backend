@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/component: tls
     app.kubernetes.io/part-of: ingress-stack
     app.kubernetes.io/managed-by: kustomize
-    conecta.seguros/tier: infrastructure
+    caicedo.seguros/tier: infrastructure
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
@@ -44,7 +44,7 @@ metadata:
     app.kubernetes.io/component: tls
     app.kubernetes.io/part-of: ingress-stack
     app.kubernetes.io/managed-by: kustomize
-    conecta.seguros/tier: infrastructure
+    caicedo.seguros/tier: infrastructure
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory

@@ -1,0 +1,115 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/observability
+
+namespace: develop
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: develop
+
+patches:
+  - target:
+      kind: DaemonSet
+      name: promtail
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "25m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "32Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "128Mi"
+
+  - target:
+      kind: PrometheusRule
+      name: platform-alerts
+    patch: |
+      apiVersion: monitoring.coreos.com/v1
+      kind: PrometheusRule
+      metadata:
+        name: platform-alerts
+      spec:
+        groups:
+          # Solo alertas críticas en develop (down/crashloop)
+          - name: fusionauth
+            interval: 60s
+            rules:
+              - alert: FusionAuthDown
+                expr: up{job="fusionauth"} == 0
+                for: 5m
+                labels:
+                  severity: warning
+                  component: identity
+                annotations:
+                  summary: "FusionAuth {{ $labels.instance }} is down"
+                  description: "FusionAuth down for 5 minutes (develop)"
+          - name: postgresql
+            interval: 60s
+            rules:
+              - alert: PostgreSQLDown
+                expr: pg_up == 0
+                for: 5m
+                labels:
+                  severity: warning
+                  component: database
+                annotations:
+                  summary: "PostgreSQL {{ $labels.instance }} is down"
+                  description: "PostgreSQL down for 5 minutes (develop)"
+          - name: kubernetes
+            interval: 60s
+            rules:
+              - alert: KubePodCrashLooping
+                expr: max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) >= 1
+                for: 10m
+                labels:
+                  severity: warning
+                  component: kubernetes
+                annotations:
+                  summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} CrashLoopBackOff"
+                  description: "Container crash looping for 10 minutes (develop)"
+
+  - target:
+      kind: ServiceMonitor
+      name: fusionauth
+    patch: |
+      - op: replace
+        path: /spec/endpoints/0/interval
+        value: "60s"
+  - target:
+      kind: ServiceMonitor
+      name: postgres-exporter
+    patch: |
+      - op: replace
+        path: /spec/endpoints/0/interval
+        value: "60s"
+  - target:
+      kind: ServiceMonitor
+      name: node-exporter
+    patch: |
+      - op: replace
+        path: /spec/endpoints/0/interval
+        value: "60s"
+  - target:
+      kind: ServiceMonitor
+      name: cadvisor
+    patch: |
+      - op: replace
+        path: /spec/endpoints/0/interval
+        value: "60s"
+
+  # PodMonitor: intervalo mayor
+  - target:
+      kind: PodMonitor
+      name: spring-boot-services
+    patch: |
+      - op: replace
+        path: /spec/podMetricsEndpoints/0/interval
+        value: "60s"

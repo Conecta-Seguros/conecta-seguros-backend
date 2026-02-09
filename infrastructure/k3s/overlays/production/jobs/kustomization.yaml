@@ -9,10 +9,9 @@ namespace: production
 
 labels:
   - pairs:
-      conecta.seguros/environment: production
+      caicedo.seguros/environment: production
 
 patches:
-  # Backup cada 6 horas con más recursos
   - target:
       kind: CronJob
       name: postgres-backup
@@ -33,7 +32,6 @@ patches:
         path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
 
-  # Mantenimiento con más recursos
   - target:
       kind: CronJob
       name: postgres-maintenance
@@ -45,7 +43,6 @@ patches:
         path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
 
-  # Migración con deadline extendido
   - target:
       kind: Job
       name: db-migration
@@ -66,7 +63,6 @@ patches:
         path: /spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
 
-  # PVC grande
   - target:
       kind: PersistentVolumeClaim
       name: backup-pvc

@@ -1,17 +1,17 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: conecta-seguros-tls
+  name: caicedo-seguros-tls
   namespace: ingress-nginx
   labels:
-    app.kubernetes.io/name: conecta-seguros-tls
+    app.kubernetes.io/name: caicedo-seguros-tls
     app.kubernetes.io/component: tls
     app.kubernetes.io/part-of: ingress-stack
     app.kubernetes.io/managed-by: kustomize
-    conecta.seguros/tier: infrastructure
-    conecta.seguros/environment: production
+    caicedo.seguros/tier: infrastructure
+    caicedo.seguros/environment: production
 spec:
-  secretName: conecta-seguros-tls-secret
+  secretName: caicedo-seguros-tls-secret
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
@@ -22,9 +22,9 @@ spec:
     size: 256
     rotationPolicy: Always
   dnsNames:
-    - "conectaseguros.com"
-    - "*.conectaseguros.com"
-    - "*.api.conectaseguros.com"
+    - "caicedoseguros.com"
+    - "*.caicedoseguros.com"
+    - "*.api.caicedoseguros.com"
   usages:
     - digital signature
     - key encipherment
