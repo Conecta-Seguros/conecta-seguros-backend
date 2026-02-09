@@ -1,11 +1,8 @@
 #!/bin/bash
 # ============================================================================
-# manage-secrets.sh - Gestión completa de secrets desde .env
-# ============================================================================
-# Ruta: infrastructure/k3s/scripts/manage-secrets.sh
 #
 # Uso:
-#   ./scripts/manage-secrets.sh setup   <entorno>    # init + edit + create (todo)
+#   ./scripts/manage-secrets.sh setup   <entorno>    # init + edit + create
 #   ./scripts/manage-secrets.sh init    [entorno|all] # .env.example → .env
 #   ./scripts/manage-secrets.sh create  <entorno>     # kubectl create secret
 #   ./scripts/manage-secrets.sh update  <entorno>     # kubectl apply secret
@@ -28,15 +25,15 @@ NC='\033[0m'
 
 usage() {
   echo ""
-  echo "Uso: $0 <command> [environment]"
+  echo "Use: $0 <command> [environment]"
   echo ""
-  echo "  setup   <env>      Init + create en un solo paso"
-  echo "  init    [env|all]  Copiar .env.example → .env"
-  echo "  create  <env>      Crear secret (falla si ya existe)"
-  echo "  update  <env>      Crear o actualizar secret"
-  echo "  delete  <env>      Eliminar secret del cluster"
-  echo "  verify  <env>      Verificar que el secret existe"
-  echo "  show    <env>      Mostrar comando kubectl sin ejecutar"
+  echo "  setup   <env>      Init + create in one step"
+  echo "  init    [env|all]  Copy .env.example → .env"
+  echo "  create  <env>      Create secret (fails if it already exists)"
+  echo "  update  <env>      Create or update secret"
+  echo "  delete  <env>      Delete secret from cluster"
+  echo "  verify  <env>      Verify that the secret exists"
+  echo "  show    <env>      Show kubectl command without running"
   echo ""
   echo "Environments: develop, test, production"
   echo ""
@@ -50,8 +47,8 @@ check_env_exists() {
   local env=$1
   local env_file=$(get_env_file "$env")
   if [ ! -f "$env_file" ]; then
-    echo -e "${RED}[ERROR]${NC} No existe: ${env_file}"
-    echo -e "       Ejecutar primero: $0 init ${env}"
+    echo -e "${RED}[ERROR]${NC} Does not exist: ${env_file}"
+    echo -e "       Run first: $0 init ${env}"
     exit 1
   fi
 }
@@ -59,9 +56,9 @@ check_env_exists() {
 check_namespace() {
   local env=$1
   if ! kubectl get namespace "${env}" > /dev/null 2>&1; then
-    echo -e "${YELLOW}[WARN]${NC} Namespace '${env}' no existe. Creando..."
+    echo -e "${YELLOW}[WARN]${NC} Namespace '${env}' does not exist. Creating..."
     kubectl create namespace "${env}"
-    echo -e "${GREEN}[OK]${NC}   Namespace '${env}' creado"
+    echo -e "${GREEN}[OK]${NC}   Namespace '${env}' created"
   fi
 }
 
