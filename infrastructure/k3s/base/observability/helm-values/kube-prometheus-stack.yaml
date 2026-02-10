@@ -115,7 +115,6 @@ grafana:
       jsonData:
         maxLines: 1000
 
-  # Grafana.ini
   grafana.ini:
     server:
       root_url: "%(protocol)s://%(domain)s/"
@@ -138,7 +137,6 @@ grafana:
     - grafana-clock-panel
     - grafana-piechart-panel
 
-  # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
@@ -189,7 +187,7 @@ prometheusOperator:
       memory: 256Mi
 
 kubeEtcd:
-  enabled: false  o
+  enabled: false
 kubeScheduler:
   enabled: false
 kubeControllerManager:
@@ -197,7 +195,6 @@ kubeControllerManager:
 kubeProxy:
   enabled: false
 
-# --- Labels comunes ---
 commonLabels:
   caicedo.seguros/tier: infrastructure
   caicedo.seguros/managed-by: platform-team
