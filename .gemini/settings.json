@@ -38,9 +38,9 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "${PAMENTSDATABASE_URL}"
+        "${PAYMENTSDATABASE_URL}"
       ],
-      "env": "${PAMENTSDATABASE_URL}",
+      "env": "${PAYMENTSDATABASE_URL}",
       "trust": true,
       "description": "Base de datos de pagos"
     }
