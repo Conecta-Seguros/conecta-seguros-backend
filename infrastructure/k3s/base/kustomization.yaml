@@ -1,12 +1,5 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: title
-data:
-  # kv format
-  key: "value"
-  $actual-config-file$: "name.properties"
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 
-  # file format
-  name.properties: |
-    field=value1,value2
+resources:
+  - platform

@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/platform/namespace-scoped
+  - ../../../base/platform/network-policies/deny-all-egress.yaml
+
+namespace: production
+
+labels:
+  - pairs:
+      conecta.seguros/environment: production
+
+patches:
+  - target:
+      kind: ResourceQuota
+      name: compute-resources
+    patch: |
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: compute-resources
+      spec:
+        hard:
+          requests.cpu: "6"
+          requests.memory: 12Gi
+          limits.cpu: "12"
+          limits.memory: 24Gi
+          persistentvolumeclaims: "15"
+          services.loadbalancers: "2"
+          count/deployments.apps: "20"
+          count/statefulsets.apps: "5"
+          count/jobs.batch: "10"
+          count/cronjobs.batch: "5"
+
+  - target:
+      kind: ResourceQuota
+      name: object-counts
+    patch: |
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: object-counts
+      spec:
+        hard:
+          configmaps: "40"
+          secrets: "40"
+          services: "25"
+          count/ingresses.networking.k8s.io: "15"
+          replicationcontrollers: "0"

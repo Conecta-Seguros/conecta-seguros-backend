@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pod-security-reference
+  labels:
+    app.kubernetes.io/name: pod-security-reference
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
+data:
+  baseline-pod-template.yaml: |
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+
+
+  restricted-pod-template.yaml: |
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+
+  namespace-policy-matrix.yaml: |
+    # Namespace       | enforce     | audit      | warn
+    # develop         | privileged  | baseline   | baseline
+    # test            | baseline    | restricted | restricted
+    # production      | baseline    | restricted | restricted
+    # observability   | privileged  | baseline   | baseline
+    # ingress-nginx   | privileged  | -          | -

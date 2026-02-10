@@ -2,7 +2,12 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns
-  namespace: production
+  labels:
+    app.kubernetes.io/name: allow-dns
+    app.kubernetes.io/component: network-security
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
 spec:
   podSelector: {}
   policyTypes:
@@ -12,9 +17,6 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
-        - podSelector:
-            matchLabels:
-              k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../namespaces/limitrange-default.yaml
+  - ../namespaces/resourcequota-default.yaml
+
+  - ../network-policies
+
+  - ../rbac/serviceaccounts.yaml
+  - ../rbac/roles.yaml
+  - ../rbac/rolebindings.yaml

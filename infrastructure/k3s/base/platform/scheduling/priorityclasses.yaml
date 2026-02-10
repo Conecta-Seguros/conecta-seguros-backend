@@ -1,0 +1,65 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: data-critical
+  labels:
+    app.kubernetes.io/name: data-critical
+    app.kubernetes.io/component: scheduling
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
+value: 900000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Critical data services (PostgreSQL, backups). Must not be evicted."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: infrastructure-high
+  labels:
+    app.kubernetes.io/name: infrastructure-high
+    app.kubernetes.io/component: scheduling
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
+value: 700000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Infrastructure services (monitoring, identity, ingress)."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: application-default
+  labels:
+    app.kubernetes.io/name: application-default
+    app.kubernetes.io/component: scheduling
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
+value: 400000
+globalDefault: true
+preemptionPolicy: PreemptLowerPriority
+description: "Default for application workloads (microservices). Global default."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: batch-low
+  labels:
+    app.kubernetes.io/name: batch-low
+    app.kubernetes.io/component: scheduling
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: platform
+value: 100000
+globalDefault: false
+preemptionPolicy: Never
+description: "Batch jobs (backups, maintenance, migrations). Can be preempted."
