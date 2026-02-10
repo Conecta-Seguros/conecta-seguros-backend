@@ -1,52 +1,34 @@
 #!/bin/bash
 # ============================================================================
-# install-observability.sh - Instalación completa del stack de observabilidad
-# ============================================================================
-# Ruta: infrastructure/k3s/scripts/install-observability.sh
 #
 # Uso:
-#   ./scripts/install-observability.sh install  <entorno>
-#   ./scripts/install-observability.sh upgrade  <entorno>
-#   ./scripts/install-observability.sh status   <entorno>
-#   ./scripts/install-observability.sh uninstall <entorno>
+#   ./scripts/install-observability.sh install  <env>
+#   ./scripts/install-observability.sh upgrade  <env>
+#   ./scripts/install-observability.sh uninstall
+#   ./scripts/install-observability.sh status
 #
-# Instala:
-#   1. kube-prometheus-stack (Prometheus + Alertmanager + Grafana + Node Exporter)
-#   2. Loki (almacenamiento de logs)
-#   3. Promtail (recolección de logs)
-#   4. Blackbox Exporter (probes HTTP/TCP)
-#   5. Postgres Exporter (métricas PostgreSQL)
-#   6. Custom CRDs (ServiceMonitors, PrometheusRules, PodMonitors, Probes)
 # ============================================================================
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BASE_DIR="$(dirname "$SCRIPT_DIR")"
-BASE_VALUES="${BASE_DIR}/base/observability/helm-values"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 NAMESPACE="observability"
+BASE_VALUES="${BASE_DIR}/base/observability/helm-values"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-usage() {
-  echo ""
-  echo "Uso: $0 <command> <environment>"
-  echo ""
-  echo "  install   <env>   Instalación completa (repos + charts + CRDs)"
-  echo "  upgrade   <env>   Actualizar charts existentes"
-  echo "  status    <env>   Verificar estado de todos los componentes"
-  echo "  uninstall <env>   Desinstalar todo el stack"
-  echo ""
-  echo "Environments: develop, test, production"
-  echo ""
-  exit 1
-}
-
-get_overlay_values() {
-  echo "${BASE_DIR}/overlays/$1/observability/helm-values/$1-overrides.yaml"
+# ============================================================================
+# HELPERS
+# ============================================================================
+get_env_value() {
+  local file="$1"
+  local key="$2"
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2-
 }
 
 # ============================================================================
@@ -54,9 +36,11 @@ get_overlay_values() {
 # ============================================================================
 setup_repos() {
   echo -e "${CYAN}[1/6] Configurando repositorios Helm...${NC}"
+
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
   helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
   helm repo update
+
   echo -e "${GREEN}[OK]${NC} Repositorios actualizados"
 }
 
@@ -65,20 +49,20 @@ setup_repos() {
 # ============================================================================
 setup_namespace() {
   local env=$1
+
   echo -e "${CYAN}[2/6] Verificando namespace...${NC}"
 
-  if ! kubectl get namespace "${NAMESPACE}" > /dev/null 2>&1; then
+  if ! kubectl get namespace "${NAMESPACE}" &>/dev/null; then
     kubectl create namespace "${NAMESPACE}"
     echo -e "${GREEN}[OK]${NC} Namespace '${NAMESPACE}' creado"
   else
     echo -e "${YELLOW}[SKIP]${NC} Namespace '${NAMESPACE}' ya existe"
   fi
 
-  # Labels para el namespace
   kubectl label namespace "${NAMESPACE}" \
     conecta.seguros/environment="${env}" \
     conecta.seguros/tier=infrastructure \
-    --overwrite
+    --overwrite 2>/dev/null || true
 }
 
 # ============================================================================
@@ -91,19 +75,24 @@ setup_postgres_exporter_secret() {
   echo -e "${CYAN}[3/6] Configurando secret de Postgres Exporter...${NC}"
 
   if [ ! -f "$env_file" ]; then
-    echo -e "${YELLOW}[WARN]${NC} No se encontró ${env_file}. Postgres Exporter necesita credenciales."
-    echo -e "       Ejecutar: ./scripts/manage-secrets.sh init ${env}"
+    echo -e "${YELLOW}[WARN]${NC} No se encontró ${env_file}."
+    echo -e "       Ejecutar: cp overlays/${env}/secrets/.env.template overlays/${env}/secrets/.env"
     return
   fi
 
-  # Extraer variables del .env
-  local PG_HOST=$(grep '^POSTGRES_FUSIONAUTH_BACKUP_URL' "$env_file" | sed 's|.*jdbc:postgresql://||' | cut -d: -f1)
-  local PG_PORT=$(grep '^POSTGRES_FUSIONAUTH_BACKUP_PORT' "$env_file" | cut -d= -f2)
-  local PG_USER=$(grep '^POSTGRES_FUSIONAUTH_BACKUP_ROOT_USER' "$env_file" | cut -d= -f2)
-  local PG_PASS=$(grep '^POSTGRES_FUSIONAUTH_BACKUP_ROOT_PASSWORD' "$env_file" | cut -d= -f2)
-  local PG_DB=$(grep '^POSTGRES_FUSIONAUTH_BACKUP_DB' "$env_file" | cut -d= -f2)
+  # Read credentials from the unified .env
+  local PG_USER
+  local PG_PASS
+  PG_USER=$(get_env_value "$env_file" "POSTGRES_ROOT_USER")
+  PG_PASS=$(get_env_value "$env_file" "POSTGRES_ROOT_PASSWORD")
 
-  local DSN="postgresql://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=disable"
+  if [ -z "$PG_USER" ] || [ -z "$PG_PASS" ]; then
+    echo -e "${YELLOW}[WARN]${NC} POSTGRES_ROOT_USER or POSTGRES_ROOT_PASSWORD empty in .env"
+    return
+  fi
+
+  # DSN: postgres-exporter connects to PostgreSQL via K8s service DNS
+  local DSN="postgresql://${PG_USER}:${PG_PASS}@postgresql-svc.${env}.svc.cluster.local:5432/postgres?sslmode=disable"
 
   kubectl create secret generic postgres-exporter-credentials \
     --from-literal=DATA_SOURCE_NAME="${DSN}" \
@@ -118,14 +107,18 @@ setup_postgres_exporter_secret() {
 # ============================================================================
 install_charts() {
   local env=$1
-  local action=$2  # install o upgrade
-  local overlay_values=$(get_overlay_values "$env")
 
-  echo -e "${CYAN}[4/6] ${action^} charts Helm...${NC}"
+  echo -e "${CYAN}[4/6] Installing/upgrading Helm charts...${NC}"
+
+  if [ ! -d "$BASE_VALUES" ]; then
+    echo -e "${RED}[ERROR]${NC} Helm values not found: ${BASE_VALUES}"
+    echo -e "       Expected: kube-prometheus-stack.yaml, loki.yaml, promtail.yaml, etc."
+    return 1
+  fi
 
   # --- kube-prometheus-stack ---
   echo -e "  → kube-prometheus-stack..."
-  helm ${action} kube-prometheus-stack \
+  helm upgrade --install kube-prometheus-stack \
     prometheus-community/kube-prometheus-stack \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kube-prometheus-stack.yaml" \
@@ -136,7 +129,7 @@ install_charts() {
 
   # --- Loki ---
   echo -e "  → loki..."
-  helm ${action} loki \
+  helm upgrade --install loki \
     grafana/loki \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/loki.yaml" \
@@ -146,7 +139,7 @@ install_charts() {
 
   # --- Promtail ---
   echo -e "  → promtail..."
-  helm ${action} promtail \
+  helm upgrade --install promtail \
     grafana/promtail \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/promtail.yaml" \
@@ -156,7 +149,7 @@ install_charts() {
 
   # --- Blackbox Exporter ---
   echo -e "  → blackbox-exporter..."
-  helm ${action} blackbox-exporter \
+  helm upgrade --install blackbox-exporter \
     prometheus-community/prometheus-blackbox-exporter \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/blackbox-exporter.yaml" \
@@ -166,29 +159,35 @@ install_charts() {
 
   # --- Postgres Exporter ---
   echo -e "  → postgres-exporter..."
-  helm ${action} postgres-exporter \
+  helm upgrade --install postgres-exporter \
     prometheus-community/prometheus-postgres-exporter \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/postgres-exporter.yaml" \
-    --wait --timeout 3m \
+    --timeout 3m \
     2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} postgres-exporter"
+  echo -e "  ${GREEN}[OK]${NC} postgres-exporter (may CrashLoop until PostgreSQL is ready)"
 }
 
 # ============================================================================
-# CUSTOM CRDS (ServiceMonitors, PrometheusRules, PodMonitors, Probes)
+# CUSTOM CRDs (ServiceMonitors, PrometheusRules)
 # ============================================================================
-apply_custom_resources() {
+apply_custom_crds() {
   local env=$1
-  local overlay_path="${BASE_DIR}/overlays/${env}/observability"
 
-  echo -e "${CYAN}[5/6] Aplicando recursos custom (CRDs)...${NC}"
+  echo -e "${CYAN}[5/6] Aplicando CRDs custom...${NC}"
 
-  if [ -f "${overlay_path}/kustomization.yaml" ]; then
-    kubectl apply -k "${overlay_path}/" 2>&1 | sed 's/^/  /'
-    echo -e "  ${GREEN}[OK]${NC} Custom resources aplicados"
+  if [ -d "${BASE_DIR}/overlays/${env}/observability" ] && \
+     [ -f "${BASE_DIR}/overlays/${env}/observability/kustomization.yaml" ]; then
+    if grep -q 'resources:' "${BASE_DIR}/overlays/${env}/observability/kustomization.yaml" 2>/dev/null; then
+      kubectl apply -k "${BASE_DIR}/overlays/${env}/observability/" 2>&1 | while read -r line; do
+        echo "  $line"
+      done
+      echo -e "${GREEN}[OK]${NC} CRDs custom aplicados"
+    else
+      echo -e "${YELLOW}[SKIP]${NC} No custom CRDs to apply"
+    fi
   else
-    echo -e "  ${YELLOW}[SKIP]${NC} No se encontró ${overlay_path}/kustomization.yaml"
+    echo -e "${YELLOW}[SKIP]${NC} No observability overlay for ${env}"
   fi
 }
 
@@ -196,143 +195,106 @@ apply_custom_resources() {
 # STATUS
 # ============================================================================
 show_status() {
-  local env=$1
-  echo -e "${CYAN}[6/6] Estado del stack de observabilidad...${NC}"
+  echo -e "${CYAN}[6/6] Estado del stack...${NC}"
   echo ""
 
-  echo -e "${CYAN}=== Helm Releases ===${NC}"
-  helm list -n "${NAMESPACE}" 2>/dev/null || echo "  No releases found"
+  echo -e "${CYAN}── Helm Releases ──${NC}"
+  helm list -n "${NAMESPACE}" 2>/dev/null || echo "  None"
   echo ""
 
-  echo -e "${CYAN}=== Pods ===${NC}"
-  kubectl get pods -n "${NAMESPACE}" -o wide 2>/dev/null || echo "  No pods found"
+  echo -e "${CYAN}── Pods ──${NC}"
+  kubectl get pods -n "${NAMESPACE}" -o wide 2>/dev/null || echo "  No pods"
   echo ""
 
-  echo -e "${CYAN}=== Services ===${NC}"
-  kubectl get svc -n "${NAMESPACE}" 2>/dev/null || echo "  No services found"
+  echo -e "${CYAN}── Services ──${NC}"
+  kubectl get svc -n "${NAMESPACE}" 2>/dev/null || echo "  No services"
   echo ""
 
-  echo -e "${CYAN}=== PVCs ===${NC}"
-  kubectl get pvc -n "${NAMESPACE}" 2>/dev/null || echo "  No PVCs found"
-  echo ""
-
-  echo -e "${CYAN}=== CRDs ===${NC}"
-  echo "  ServiceMonitors:  $(kubectl get servicemonitors -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l)"
-  echo "  PodMonitors:      $(kubectl get podmonitors -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l)"
-  echo "  PrometheusRules:  $(kubectl get prometheusrules -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l)"
-  echo "  Probes:           $(kubectl get probes -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l)"
-  echo ""
-
-  echo -e "${CYAN}=== Acceso ===${NC}"
+  echo -e "${CYAN}── Access ──${NC}"
+  local GRAFANA_PASS
+  GRAFANA_PASS=$(kubectl get secret kube-prometheus-stack-grafana -n "${NAMESPACE}" \
+    -o jsonpath="{.data.admin-password}" 2>/dev/null | base64 -d 2>/dev/null || echo "unknown")
   echo "  Grafana:      kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n ${NAMESPACE}"
+  echo "                User: admin | Pass: ${GRAFANA_PASS}"
   echo "  Prometheus:   kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n ${NAMESPACE}"
   echo "  Alertmanager: kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n ${NAMESPACE}"
-  echo ""
 }
 
 # ============================================================================
 # UNINSTALL
 # ============================================================================
 cmd_uninstall() {
-  local env=$1
+  echo -e "${RED}${BOLD}Uninstalling observability stack...${NC}"
+  echo -e "${YELLOW}Press Ctrl+C to cancel, or wait 5 seconds...${NC}"
+  sleep 5
 
-  echo -e "${RED}[WARN] Desinstalar TODO el stack de observabilidad de '${NAMESPACE}'${NC}"
-  read -p "         ¿Continuar? (y/N): " confirm
-  if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-    echo "[CANCEL] Operación cancelada"
-    exit 0
-  fi
+  for release in postgres-exporter blackbox-exporter promtail loki kube-prometheus-stack; do
+    echo -e "  Uninstalling ${release}..."
+    helm uninstall "$release" -n "${NAMESPACE}" 2>/dev/null || true
+  done
 
-  echo -e "${CYAN}Desinstalando charts...${NC}"
-  helm uninstall postgres-exporter    -n "${NAMESPACE}" 2>/dev/null || true
-  helm uninstall blackbox-exporter    -n "${NAMESPACE}" 2>/dev/null || true
-  helm uninstall promtail             -n "${NAMESPACE}" 2>/dev/null || true
-  helm uninstall loki                 -n "${NAMESPACE}" 2>/dev/null || true
-  helm uninstall kube-prometheus-stack -n "${NAMESPACE}" 2>/dev/null || true
+  echo -e "${YELLOW}Note: Prometheus CRDs may remain. To fully clean:${NC}"
+  echo "  kubectl delete crd prometheusrules.monitoring.coreos.com"
+  echo "  kubectl delete crd servicemonitors.monitoring.coreos.com"
+  echo "  kubectl delete crd podmonitors.monitoring.coreos.com"
+  echo "  kubectl delete crd alertmanagerconfigs.monitoring.coreos.com"
 
-  echo -e "${CYAN}Eliminando custom resources...${NC}"
-  kubectl delete servicemonitors,podmonitors,prometheusrules,probes --all -n "${NAMESPACE}" 2>/dev/null || true
-
-  echo -e "${CYAN}Eliminando secrets...${NC}"
-  kubectl delete secret postgres-exporter-credentials -n "${NAMESPACE}" 2>/dev/null || true
-
-  echo -e "${GREEN}[OK]${NC} Stack desinstalado. PVCs preservados para datos."
-  echo -e "     Para eliminar datos: kubectl delete pvc --all -n ${NAMESPACE}"
+  echo -e "${GREEN}Observability stack uninstalled${NC}"
 }
 
 # ============================================================================
-# MAIN COMMANDS
+# MAIN
 # ============================================================================
-cmd_install() {
-  local env=$1
-
-  echo "============================================"
-  echo " Instalación: Stack Observabilidad - ${env}"
-  echo "============================================"
+usage() {
+  echo "Usage: $0 {install|upgrade|uninstall|status} [environment]"
   echo ""
-
-  setup_repos
-  setup_namespace "$env"
-  setup_postgres_exporter_secret "$env"
-  install_charts "$env" "install"
-  apply_custom_resources "$env"
-  show_status "$env"
-
-  echo "============================================"
-  echo -e " ${GREEN}Instalación completada: ${env}${NC}"
-  echo "============================================"
-}
-
-cmd_upgrade() {
-  local env=$1
-
-  echo "============================================"
-  echo " Upgrade: Stack Observabilidad - ${env}"
-  echo "============================================"
+  echo "  install   <env>  Fresh install"
+  echo "  upgrade   <env>  Install or upgrade (idempotent)"
+  echo "  uninstall        Remove all Helm releases"
+  echo "  status           Show current state"
   echo ""
-
-  setup_repos
-  setup_postgres_exporter_secret "$env"
-  install_charts "$env" "upgrade"
-  apply_custom_resources "$env"
-  show_status "$env"
-
-  echo "============================================"
-  echo -e " ${GREEN}Upgrade completado: ${env}${NC}"
-  echo "============================================"
+  echo "Environments: develop, test, production"
+  exit 1
 }
 
-cmd_status() {
-  local env=$1
-  show_status "$env"
-}
+if [ $# -lt 1 ]; then
+  usage
+fi
 
-# ============================================================================
-# ENTRY POINT
-# ============================================================================
-[ $# -lt 2 ] && usage
+command=$1
 
-COMMAND=$1
-ENV=$2
+case "$command" in
+  install|upgrade)
+    if [ $# -lt 2 ]; then
+      echo -e "${RED}Environment required${NC}"
+      usage
+    fi
+    env=$2
+    case "$env" in
+      develop|test|production) ;;
+      *) echo -e "${RED}Invalid environment: ${env}${NC}"; usage ;;
+    esac
 
-# Validar entorno
-case "$ENV" in
-  develop|test|production) ;;
-  *) echo -e "${RED}[ERROR]${NC} Entorno inválido: ${ENV}"; usage ;;
-esac
+    echo -e "${BOLD}"
+    echo "============================================"
+    echo " Observability Stack: ${command} → ${env}"
+    echo "============================================"
+    echo -e "${NC}"
 
-# Verificar dependencias
-for cmd in helm kubectl; do
-  if ! command -v $cmd &> /dev/null; then
-    echo -e "${RED}[ERROR]${NC} ${cmd} no encontrado. Instalar primero."
-    exit 1
-  fi
-done
-
-case "$COMMAND" in
-  install)   cmd_install "$ENV" ;;
-  upgrade)   cmd_upgrade "$ENV" ;;
-  status)    cmd_status "$ENV" ;;
-  uninstall) cmd_uninstall "$ENV" ;;
-  *)         usage ;;
+    setup_repos
+    setup_namespace "$env"
+    setup_postgres_exporter_secret "$env"
+    install_charts "$env"
+    apply_custom_crds "$env"
+    show_status
+    ;;
+  uninstall)
+    cmd_uninstall
+    ;;
+  status)
+    show_status
+    ;;
+  *)
+    usage
+    ;;
 esac

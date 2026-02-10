@@ -5,8 +5,8 @@ namespace: production
 
 resources:
   - ../../base/platform/namespaces
-  - ../../base/platform/rbac
-  - ../../base/platform/network-policies
+  - ../../base/platform/namespace-scoped/rbac
+  - ../../base/platform/namespace-scoped/network-policies
   - ../../base/platform/security
   - ../../components/postgresql
   - ../../components/fusionauth

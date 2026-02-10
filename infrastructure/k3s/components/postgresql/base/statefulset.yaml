@@ -1,0 +1,221 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: caicedo-seguros
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: data
+spec:
+  serviceName: postgresql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/component: database
+        app.kubernetes.io/part-of: caicedo-seguros
+        caicedo.seguros/tier: data
+        caicedo.seguros/metrics: "true"
+    spec:
+      serviceAccountName: postgresql
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+
+      initContainers:
+        - name: setup-config
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              PGDATA="/var/lib/postgresql/data/pgdata"
+
+              # Fix data directory ownership
+              chown -R 999:999 /var/lib/postgresql/data || true
+
+              # Fix run directory permissions
+              chown 999:999 /var/run/postgresql || true
+              chmod 775 /var/run/postgresql || true
+
+              # If existing data directory, ensure include_dir is configured
+              if [ -f "$PGDATA/postgresql.conf" ]; then
+                if ! grep -q "include_dir = '/etc/postgresql/conf.d'" "$PGDATA/postgresql.conf"; then
+                  echo "" >> "$PGDATA/postgresql.conf"
+                  echo "# Custom config (added by init container)" >> "$PGDATA/postgresql.conf"
+                  echo "include_dir = '/etc/postgresql/conf.d'" >> "$PGDATA/postgresql.conf"
+                  echo "[setup-config] Added include_dir to existing postgresql.conf"
+                else
+                  echo "[setup-config] include_dir already configured"
+                fi
+              else
+                echo "[setup-config] No existing data — first boot, init scripts will configure"
+              fi
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+
+      containers:
+        - name: postgresql
+          image: postgres:18
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+
+          env:
+            # --- Root credentials ---
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_PASSWORD
+            - name: POSTGRES_DB
+              value: "postgres"
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
+            # === DB credentials for init script ===
+
+            # FusionAuth
+            - name: POSTGRES_FUSIONAUTH_DB
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_FUSIONAUTH_DB
+            - name: POSTGRES_FUSIONAUTH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_FUSIONAUTH_USER
+            - name: POSTGRES_FUSIONAUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_FUSIONAUTH_PASSWORD
+
+            # Grafana
+            - name: POSTGRES_GRAFANA_DB
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_GRAFANA_DB
+            - name: POSTGRES_GRAFANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_GRAFANA_USER
+            - name: POSTGRES_GRAFANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_GRAFANA_PASSWORD
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+
+          startupProbe:
+            exec:
+              command: ['sh', '-c', 'pg_isready -U $POSTGRES_USER']
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ['sh', '-c', 'pg_isready -U $POSTGRES_USER']
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ['sh', '-c', 'pg_isready -U $POSTGRES_USER']
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            - name: postgresql-config
+              mountPath: /etc/postgresql/conf.d
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /var/run/postgresql
+
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: postgresql-init
+        - name: postgresql-config
+          configMap:
+            name: postgresql-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: run
+          emptyDir:
+            sizeLimit: 10Mi
+
+  volumeClaimTemplates:
+    - metadata:
+        name: postgresql-data
+        labels:
+          app.kubernetes.io/name: postgresql
+          app.kubernetes.io/component: database
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

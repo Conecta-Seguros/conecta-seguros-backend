@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: db-migration
     app.kubernetes.io/component: migration
-    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/part-of: caicedo-seguros
     app.kubernetes.io/managed-by: kustomize
     caicedo.seguros/tier: infrastructure
   annotations:
@@ -20,12 +20,11 @@ spec:
       labels:
         app.kubernetes.io/name: db-migration
         app.kubernetes.io/component: migration
-      annotations:
-        sidecar.istio.io/inject: "false"
     spec:
       restartPolicy: OnFailure
       serviceAccountName: job-runner
       automountServiceAccountToken: false
+      priorityClassName: batch-low
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -33,6 +32,7 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+
       initContainers:
         - name: wait-for-db
           image: postgres:18
@@ -41,8 +41,7 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
           resources:
             requests:
               cpu: 10m
@@ -50,21 +49,24 @@ spec:
             limits:
               cpu: 50m
               memory: 32Mi
-          envFrom:
-            - secretRef:
-                name: caicedo-seguros-secrets
+          env:
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_PASSWORD
           command:
             - /bin/sh
             - -ec
             - |
-              DB_HOST=$(echo "${POSTGRES_FUSIONAUTH_URL}" | sed 's|jdbc:postgresql://||' | cut -d: -f1)
-              DB_PORT="${POSTGRES_FUSIONAUTH_PORT}"
-              DB_USER="${POSTGRES_FUSIONAUTH_ROOT_USER}"
-
-              echo "[$(date)] Waiting for PostgreSQL at ${DB_HOST}:${DB_PORT}..."
-              export PGPASSWORD="${POSTGRES_FUSIONAUTH_ROOT_PASSWORD}"
+              echo "[$(date)] Waiting for PostgreSQL at postgresql-svc:5432..."
               RETRIES=30
-              until pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" || [ $RETRIES -eq 0 ]; do
+              until pg_isready -h postgresql-svc -p 5432 -U "${PG_USER}" || [ $RETRIES -eq 0 ]; do
                 echo "[$(date)] Retrying... (${RETRIES} attempts remaining)"
                 RETRIES=$((RETRIES - 1))
                 sleep 2
@@ -74,6 +76,7 @@ spec:
                 exit 1
               fi
               echo "[$(date)] PostgreSQL ready"
+
       containers:
         - name: flyway
           image: flyway/flyway:12.0.0
@@ -82,8 +85,7 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
-              drop:
-                - ALL
+              drop: ["ALL"]
           resources:
             requests:
               cpu: 100m
@@ -91,25 +93,14 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-          envFrom:
-            - secretRef:
-                name: caicedo-seguros-secrets
+
           env:
             - name: FLYWAY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: caicedo-seguros-secrets
-                  key: POSTGRES_FUSIONAUTH_URL
+              value: "jdbc:postgresql://postgresql-svc:5432/REPLACE_DB_NAME"
             - name: FLYWAY_USER
-              valueFrom:
-                secretKeyRef:
-                  name: caicedo-seguros-secrets
-                  key: POSTGRES_FUSIONAUTH_ROOT_USER
+              value: "REPLACE_DB_USER"
             - name: FLYWAY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: caicedo-seguros-secrets
-                  key: POSTGRES_FUSIONAUTH_ROOT_PASSWORD
+              value: "REPLACE_DB_PASSWORD"
             - name: FLYWAY_SCHEMAS
               value: "public"
             - name: FLYWAY_BASELINE_ON_MIGRATE
@@ -128,6 +119,7 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+
       volumes:
         - name: sql-migrations
           configMap:

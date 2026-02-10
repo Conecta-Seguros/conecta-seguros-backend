@@ -1,11 +1,3 @@
-# ============================================================================
-# blackbox-probes.yaml - BLACKBOX EXPORTER PROBES - BASE
-# Monitoreo de endpoints HTTP/HTTPS internos y externos
-# ============================================================================
-# NO incluido en base/kustomization.yaml
-# Solo test y production lo agregan como recurso adicional.
-# ============================================================================
-
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:

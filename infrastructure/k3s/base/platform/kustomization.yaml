@@ -6,7 +6,7 @@ resources:
   - storage
   - security
   - scheduling
-  - rbac/clusterroles.yaml
+  - namespace-scoped/rbac/clusterroles.yaml
 
 labels:
   - pairs:

@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: postgres-maintenance
     app.kubernetes.io/component: maintenance
-    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/part-of: caicedo-seguros
     app.kubernetes.io/managed-by: kustomize
     caicedo.seguros/tier: infrastructure
 spec:
@@ -29,18 +29,18 @@ spec:
           labels:
             app.kubernetes.io/name: postgres-maintenance
             app.kubernetes.io/component: maintenance
-          annotations:
-            sidecar.istio.io/inject: "false"
         spec:
           restartPolicy: OnFailure
           serviceAccountName: job-runner
           automountServiceAccountToken: false
+          priorityClassName: batch-low
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
             runAsGroup: 1000
             seccompProfile:
               type: RuntimeDefault
+
           containers:
             - name: pg-maintenance
               image: postgres:18
@@ -49,8 +49,7 @@ spec:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities:
-                  drop:
-                    - ALL
+                  drop: ["ALL"]
               resources:
                 requests:
                   cpu: 200m
@@ -58,51 +57,79 @@ spec:
                 limits:
                   cpu: "1"
                   memory: 512Mi
-              envFrom:
-                - secretRef:
-                    name: caicedo-seguros-secrets
+
+              env:
+                - name: PG_HOST
+                  value: "postgresql-svc"
+                - name: PG_PORT
+                  value: "5432"
+                - name: PG_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: caicedo-seguros-secrets
+                      key: POSTGRES_ROOT_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: caicedo-seguros-secrets
+                      key: POSTGRES_ROOT_PASSWORD
+                - name: POSTGRES_FUSIONAUTH_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: caicedo-seguros-secrets
+                      key: POSTGRES_FUSIONAUTH_DB
+                - name: POSTGRES_GRAFANA_DB
+                  valueFrom:
+                    secretKeyRef:
+                      name: caicedo-seguros-secrets
+                      key: POSTGRES_GRAFANA_DB
+
               command:
                 - /bin/sh
                 - -ec
                 - |
-                  DB_HOST=$(echo "${POSTGRES_FUSIONAUTH_URL}" | sed 's|jdbc:postgresql://||' | cut -d: -f1)
-                  DB_PORT="${POSTGRES_FUSIONAUTH_PORT}"
-                  DB_NAME="${POSTGRES_FUSIONAUTH_DB}"
-                  DB_USER="${POSTGRES_FUSIONAUTH_ROOT_USER}"
-                  export PGPASSWORD="${POSTGRES_FUSIONAUTH_ROOT_PASSWORD}"
+                  DATABASES="${POSTGRES_FUSIONAUTH_DB} ${POSTGRES_GRAFANA_DB}"
 
-                  echo "[$(date)] Starting maintenance on ${DB_NAME} at ${DB_HOST}..."
+                  echo "=========================================="
+                  echo "[$(date)] Starting multi-database maintenance"
+                  echo "  Host: ${PG_HOST}:${PG_PORT}"
+                  echo "  Databases: ${DATABASES}"
+                  echo "=========================================="
 
-                  echo "[$(date)] Running VACUUM ANALYZE..."
-                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
-                    -c "VACUUM (VERBOSE, ANALYZE);" 2>&1
+                  for DB_NAME in ${DATABASES}; do
+                    [ -z "$DB_NAME" ] && continue
+                    echo ""
+                    echo "=== Maintaining: ${DB_NAME} ==="
 
-                  echo "[$(date)] Running REINDEX..."
-                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
-                    -c "REINDEX DATABASE ${DB_NAME};" 2>&1
+                    echo "[$(date)] VACUUM ANALYZE..."
+                    psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${DB_NAME}" \
+                      -c "VACUUM (VERBOSE, ANALYZE);" 2>&1
 
-                  echo "[$(date)] Top 10 tables by size:"
-                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -c "
-                    SELECT schemaname || '.' || tablename AS tabla,
-                           pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS size
-                    FROM pg_tables
-                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                    ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
-                    LIMIT 10;
+                    echo "[$(date)] REINDEX..."
+                    psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${DB_NAME}" \
+                      -c "REINDEX DATABASE \"${DB_NAME}\";" 2>&1
+
+                    echo "[$(date)] Top 10 tables by size:"
+                    psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d "${DB_NAME}" -c "
+                      SELECT schemaname || '.' || tablename AS table_name,
+                             pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS size
+                      FROM pg_tables
+                      WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+                      ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+                      LIMIT 10;
+                    "
+                    echo "[$(date)] [OK] ${DB_NAME} done"
+                  done
+
+                  echo ""
+                  echo "=== Global database sizes ==="
+                  psql -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" -d postgres -c "
+                    SELECT datname, pg_size_pretty(pg_database_size(datname)) AS size
+                    FROM pg_database WHERE datistemplate = false
+                    ORDER BY pg_database_size(datname) DESC;
                   "
+                  echo "[$(date)] All maintenance complete"
 
-                  echo "[$(date)] Low-usage indexes:"
-                  psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" -c "
-                    SELECT schemaname || '.' || relname AS table_name,
-                           indexrelname AS index_name,
-                           idx_scan AS scans
-                    FROM pg_stat_user_indexes
-                    WHERE idx_scan < 10
-                    ORDER BY idx_scan ASC
-                    LIMIT 10;
-                  "
-
-                  echo "[$(date)] Maintenance completed"
               volumeMounts:
                 - name: tmp
                   mountPath: /tmp
