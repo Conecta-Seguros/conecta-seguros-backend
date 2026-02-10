@@ -42,7 +42,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: promtail
-          image: grafana/promtail:main-6f22714
+          image: grafana/promtail:3.6.5
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/promtail/promtail.yaml
