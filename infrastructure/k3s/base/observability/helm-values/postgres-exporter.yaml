@@ -8,7 +8,7 @@ config:
 
   datasourceSecret:
     name: postgres-exporter-credentials
-    key: DATA_SOURCE_URI
+    key: DATA_SOURCE_NAME
 
 resources:
   requests:
@@ -22,7 +22,7 @@ serviceMonitor:
   enabled: true
   interval: 30s
   labels:
-    conecta.seguros/tier: infrastructure
+    caicedo.seguros/tier: infrastructure
 
 extraQueries: |
   # Tamaño de tablas
