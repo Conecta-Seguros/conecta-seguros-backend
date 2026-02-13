@@ -1,10 +1,3 @@
-# ============================================================================
-# develop-overrides.yaml - HELM OVERRIDES - DEVELOP
-# Recursos mínimos, retención corta, sin alertas críticas
-# ============================================================================
-# Ruta: infrastructure/k3s/overlays/develop/observability/helm-values/develop-overrides.yaml
-# ============================================================================
-
 kube-prometheus-stack:
   prometheus:
     prometheusSpec:
