@@ -9,7 +9,7 @@ namespace: production
 
 labels:
   - pairs:
-      conecta.seguros/environment: production
+      caicedo.seguros/environment: production
 
 patches:
   - target:

@@ -60,8 +60,8 @@ setup_namespace() {
   fi
 
   kubectl label namespace "${NAMESPACE}" \
-    conecta.seguros/environment="${env}" \
-    conecta.seguros/tier=infrastructure \
+    caicedo.seguros/environment="${env}" \
+    caicedo.seguros/tier=infrastructure \
     --overwrite 2>/dev/null || true
 }
 
@@ -122,7 +122,7 @@ install_charts() {
     prometheus-community/kube-prometheus-stack \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kube-prometheus-stack.yaml" \
-    --set commonLabels."conecta\.seguros/environment"="${env}" \
+    --set commonLabels."caicedo\.seguros/environment"="${env}" \
     --wait --timeout 10m \
     2>&1 | tail -3
   echo -e "  ${GREEN}[OK]${NC} kube-prometheus-stack"

@@ -45,3 +45,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: promtail
+    namespace: observability

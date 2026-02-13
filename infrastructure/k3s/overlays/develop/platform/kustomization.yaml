@@ -8,7 +8,7 @@ namespace: develop
 
 labels:
   - pairs:
-      conecta.seguros/environment: develop
+      caicedo.seguros/environment: develop
 
 patches:
   - target:
