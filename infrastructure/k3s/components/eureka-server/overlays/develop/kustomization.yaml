@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: develop
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: develop
+
+patches:
+  - target:
+      kind: Deployment
+      name: eureka-server
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: infrastructure-high
+
+  - target:
+      kind: ConfigMap
+      name: eureka-server-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: eureka-server-config
+      data:
+        SPRING_PROFILES_ACTIVE: "k8s"
+        JAVA_OPTS: >-
+          -XX:+UseContainerSupport
+          -XX:MaxRAMPercentage=75.0
+          -XX:InitialRAMPercentage=50.0
+          -XX:+UseG1GC
+          -XX:MaxGCPauseMillis=200
+          -XX:+UseStringDeduplication
+          -Djava.security.egd=file:/dev/./urandom
+          -Djava.awt.headless=true
+          -Dfile.encoding=UTF-8
+
+  - target:
+      kind: ServiceMonitor
+      name: eureka-server
+    patch: |
+      - op: add
+        path: /spec/namespaceSelector
+        value:
+          matchNames:
+            - develop
