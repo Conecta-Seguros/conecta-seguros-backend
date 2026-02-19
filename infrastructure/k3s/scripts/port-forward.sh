@@ -25,6 +25,8 @@ NC='\033[0m'
 # SERVICIOS: nombre|namespace|servicio|puerto_local:puerto_remoto
 # ============================================================================
 SERVICES=(
+
+  "Eureka|develop|svc/eureka-svc|8761:8761"
   "FusionAuth|develop|svc/fusionauth-svc|9011:9011"
   "PostgreSQL|develop|svc/postgresql-svc|5432:5432"
   "Grafana|observability|svc/kube-prometheus-stack-grafana|3000:80"

@@ -1,11 +1,25 @@
 #!/bin/bash
 # ============================================================================
+# deploy-develop.sh - DEPLOY CONECTA SEGUROS K3S
+# ============================================================================
+# Ruta: infrastructure/k3s/scripts/deploy-develop.sh
 #
 # Uso:
 #   ./scripts/deploy-develop.sh deploy   develop
 #   ./scripts/deploy-develop.sh status   develop
 #   ./scripts/deploy-develop.sh destroy  develop
 #
+# Orden de deploy:
+#   0. Preflight checks (cluster, secrets, images)
+#   1. Platform cluster-wide (namespaces, storageclasses, clusterroles)
+#   2. Platform namespace-scoped (quotas, policies, RBAC)
+#   3. Secrets
+#   4. Observability (Helm charts)
+#   5. PostgreSQL
+#   6. Eureka Server (service discovery)
+#   7. FusionAuth (identity)
+#   8. Jobs (backup, maintenance)
+#   9. Observability CRDs (ServiceMonitors, Rules)
 # ============================================================================
 set -euo pipefail
 
@@ -85,8 +99,8 @@ cmd_deploy() {
   echo "============================================"
   echo -e "${NC}"
 
-  # ── Preflight checks ──
-  step "0/8" "Preflight checks"
+  # ── 0. Preflight checks ──
+  step "0/9" "Preflight checks"
 
   if ! kubectl cluster-info &>/dev/null; then
     fail "Cannot connect to cluster"
@@ -110,8 +124,30 @@ cmd_deploy() {
     warn "Found CAMBIAR_AQUI placeholders — replace before production use"
   fi
 
+  # Check local images are available in K3s (for local develop)
+  if [ "$env" = "develop" ]; then
+    local missing_images=0
+    if ! sudo k3s ctr images ls 2>/dev/null | grep -q "caicedo-seguros/discovery-server:local"; then
+      warn "Image 'caicedo-seguros/discovery-server:local' not found in K3s"
+      warn "Run: ./scripts/build-images.sh build eureka-server"
+      missing_images=1
+    else
+      ok "Eureka Server image available in K3s"
+    fi
+
+    if [ $missing_images -gt 0 ]; then
+      echo ""
+      echo -e "  ${YELLOW}Some images are missing. Build them first:${NC}"
+      echo -e "    ${BOLD}./scripts/build-images.sh build${NC}"
+      echo ""
+      echo -e "  Continue deploy anyway? (services without images will fail)"
+      echo -e "  Press Ctrl+C to cancel, or wait 5 seconds..."
+      sleep 5
+    fi
+  fi
+
   # ── 1. Platform cluster-wide ──
-  step "1/8" "Platform (cluster-wide: namespaces, storageclasses, clusterroles)"
+  step "1/9" "Platform (cluster-wide: namespaces, storageclasses, clusterroles)"
 
   cd "$BASE_DIR"
   kubectl apply -k base/ 2>&1 | while read -r line; do
@@ -120,7 +156,7 @@ cmd_deploy() {
   ok "Platform cluster-wide applied"
 
   # ── 2. Platform namespace-scoped ──
-  step "2/8" "Platform namespace-scoped (quotas, policies, RBAC) → ${env}"
+  step "2/9" "Platform namespace-scoped (quotas, policies, RBAC) → ${env}"
 
   if [ -d "overlays/${env}/platform" ]; then
     kubectl apply -k "overlays/${env}/platform/" 2>&1 | while read -r line; do
@@ -131,13 +167,13 @@ cmd_deploy() {
     warn "No platform overlay for ${env}, skipping"
   fi
 
-  # ── 3. Secrets (IDEMPOTENT) ──
-  step "3/8" "Secrets → ${env}"
+  # ── 3. Secrets ──
+  step "3/9" "Secrets → ${env}"
 
   "${SCRIPT_DIR}/manage-secrets.sh" setup "$env"
 
   # ── 4. Observability Helm ──
-  step "4/8" "Observability (Helm charts) → observability namespace"
+  step "4/9" "Observability (Helm charts) → observability namespace"
 
   if [ -f "${SCRIPT_DIR}/install-observability.sh" ]; then
     echo -e "  Running install-observability.sh upgrade ${env}..."
@@ -154,7 +190,7 @@ cmd_deploy() {
   fi
 
   # ── 5. PostgreSQL ──
-  step "5/8" "PostgreSQL → ${env}"
+  step "5/9" "PostgreSQL → ${env}"
 
   if [ -d "components/postgresql/overlays/${env}" ]; then
     kubectl apply -k "components/postgresql/overlays/${env}/" 2>&1 | while read -r line; do
@@ -162,7 +198,7 @@ cmd_deploy() {
     done
     wait_for_pod "app.kubernetes.io/name=postgresql" "$env" 180
 
-    # Verificar que las DBs se crearon
+    # Verificar databases
     echo -e "  Checking databases..."
     sleep 5
     if kubectl exec postgresql-0 -n "$env" -- \
@@ -175,8 +211,20 @@ cmd_deploy() {
     warn "No PostgreSQL overlay for ${env}, skipping"
   fi
 
-  # ── 6. FusionAuth ──
-  step "6/8" "FusionAuth → ${env}"
+  # ── 6. Eureka Server ──
+  step "6/9" "Eureka Server → ${env}"
+
+  if [ -d "components/eureka-server/overlays/${env}" ]; then
+    kubectl apply -k "components/eureka-server/overlays/${env}/" 2>&1 | while read -r line; do
+      echo "  $line"
+    done
+    wait_for_deployment "eureka-server" "$env" 180
+  else
+    warn "No Eureka Server overlay for ${env}, skipping"
+  fi
+
+  # ── 7. FusionAuth ──
+  step "7/9" "FusionAuth → ${env}"
 
   if [ -d "components/fusionauth/overlays/${env}" ]; then
     kubectl apply -k "components/fusionauth/overlays/${env}/" 2>&1 | while read -r line; do
@@ -187,8 +235,8 @@ cmd_deploy() {
     warn "No FusionAuth overlay for ${env}, skipping"
   fi
 
-  # ── 7. Jobs ──
-  step "7/8" "Jobs (backup, maintenance) → ${env}"
+  # ── 8. Jobs ──
+  step "8/9" "Jobs (backup, maintenance) → ${env}"
 
   if [ -d "overlays/${env}/jobs" ]; then
     kubectl apply -k "overlays/${env}/jobs/" 2>&1 | while read -r line; do
@@ -199,8 +247,8 @@ cmd_deploy() {
     warn "No jobs overlay for ${env}, skipping"
   fi
 
-  # ── 8. Observability CRDs ──
-  step "8/8" "Observability CRDs (custom ServiceMonitors, Rules)"
+  # ── 9. Observability CRDs ──
+  step "9/9" "Observability CRDs (custom ServiceMonitors, Rules)"
 
   if [ -d "overlays/${env}/observability" ] && \
      [ -f "overlays/${env}/observability/kustomization.yaml" ]; then
@@ -241,7 +289,7 @@ cmd_status() {
   echo ""
 
   echo -e "${CYAN}── Pods (observability) ──${NC}"
-  kubectl get pods -n observability --no-headers 2>/dev/null | head -10 || echo "  No pods"
+  kubectl get pods -n observability --no-headers 2>/dev/null | head -12 || echo "  No pods"
   echo ""
 
   echo -e "${CYAN}── Services (${env}) ──${NC}"
@@ -281,6 +329,7 @@ cmd_status() {
   echo ""
 
   echo -e "${CYAN}── Access ──${NC}"
+  echo "  Eureka:       kubectl port-forward svc/eureka-svc 8761:8761 -n ${env}"
   echo "  FusionAuth:   kubectl port-forward svc/fusionauth-svc 9011:9011 -n ${env}"
   echo "  PostgreSQL:   kubectl port-forward svc/postgresql-svc 5432:5432 -n ${env}"
   echo "  Grafana:      kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n observability"
@@ -313,6 +362,8 @@ cmd_destroy() {
     kubectl delete -k "overlays/${env}/jobs/" --ignore-not-found 2>/dev/null || true
   [ -d "components/fusionauth/overlays/${env}" ] && \
     kubectl delete -k "components/fusionauth/overlays/${env}/" --ignore-not-found 2>/dev/null || true
+  [ -d "components/eureka-server/overlays/${env}" ] && \
+    kubectl delete -k "components/eureka-server/overlays/${env}/" --ignore-not-found 2>/dev/null || true
   [ -d "components/postgresql/overlays/${env}" ] && \
     kubectl delete -k "components/postgresql/overlays/${env}/" --ignore-not-found 2>/dev/null || true
   [ -d "overlays/${env}/platform" ] && \
@@ -340,11 +391,14 @@ cmd_destroy() {
 usage() {
   echo "Usage: $0 {deploy|status|destroy} <environment>"
   echo ""
-  echo "  deploy   Deploy full environment (ordered)"
+  echo "  deploy   Deploy full environment (ordered, 9 steps)"
   echo "  status   Show environment status"
   echo "  destroy  Delete all resources"
   echo ""
   echo "Environments: develop, test, production"
+  echo ""
+  echo "Prerequisites (develop):"
+  echo "  ./scripts/build-images.sh build    # Build local images first"
   exit 1
 }
 
