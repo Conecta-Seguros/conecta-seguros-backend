@@ -34,7 +34,7 @@ spec:
 
       containers:
         - name: eureka-server
-          image: ghcr.io/caicedo-seguros/discovery-server:latest
+          image: caicedo-seguros/discovery-server:local
           imagePullPolicy: Always
           ports:
             - name: http
@@ -64,6 +64,26 @@ spec:
                 secretKeyRef:
                   name: caicedo-seguros-secrets
                   key: EUREKA_PASSWORD
+            - name: EUREKA_PREFER_IP_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_PREFER_IP_ADDRESS
+            - name: EUREKA_HOSTNAME
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_HOSTNAME
+            - name: EUREKA_PEER_URLS
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_PEER_URLS
+            - name: EUREKA_ZONE
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_ZONE
 
           resources:
             requests:
