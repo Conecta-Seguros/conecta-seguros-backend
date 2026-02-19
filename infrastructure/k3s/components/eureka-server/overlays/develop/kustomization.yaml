@@ -24,6 +24,12 @@ patches:
           limits:
             cpu: 500m
             memory: 512Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: caicedo-seguros/discovery-server:local
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
       - op: add
         path: /spec/template/spec/priorityClassName
         value: infrastructure-high
@@ -38,16 +44,6 @@ patches:
         name: eureka-server-config
       data:
         SPRING_PROFILES_ACTIVE: "k8s"
-        JAVA_OPTS: >-
-          -XX:+UseContainerSupport
-          -XX:MaxRAMPercentage=75.0
-          -XX:InitialRAMPercentage=50.0
-          -XX:+UseG1GC
-          -XX:MaxGCPauseMillis=200
-          -XX:+UseStringDeduplication
-          -Djava.security.egd=file:/dev/./urandom
-          -Djava.awt.headless=true
-          -Dfile.encoding=UTF-8
 
   - target:
       kind: ServiceMonitor
