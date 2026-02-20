@@ -1,25 +1,11 @@
 #!/bin/bash
 # ============================================================================
-# deploy-develop.sh - DEPLOY CONECTA SEGUROS K3S
-# ============================================================================
-# Ruta: infrastructure/k3s/scripts/deploy-develop.sh
 #
 # Uso:
 #   ./scripts/deploy-develop.sh deploy   develop
 #   ./scripts/deploy-develop.sh status   develop
 #   ./scripts/deploy-develop.sh destroy  develop
 #
-# Orden de deploy:
-#   0. Preflight checks (cluster, secrets, images)
-#   1. Platform cluster-wide (namespaces, storageclasses, clusterroles)
-#   2. Platform namespace-scoped (quotas, policies, RBAC)
-#   3. Secrets
-#   4. Observability (Helm charts)
-#   5. PostgreSQL
-#   6. Eureka Server (service discovery)
-#   7. FusionAuth (identity)
-#   8. Jobs (backup, maintenance)
-#   9. Observability CRDs (ServiceMonitors, Rules)
 # ============================================================================
 set -euo pipefail
 

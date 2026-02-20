@@ -1,8 +1,5 @@
 #!/bin/bash
 # ============================================================================
-# build-images.sh - BUILD & IMPORT IMAGES INTO K3S
-# ============================================================================
-# Ruta: infrastructure/k3s/scripts/build-images.sh
 #
 # Uso:
 #   ./scripts/build-images.sh build                  # Build ALL services
@@ -11,14 +8,6 @@
 #   ./scripts/build-images.sh list                    # Show registered services
 #   ./scripts/build-images.sh status                  # Show images in K3s
 #
-# K3s usa containerd, no Docker. Las imágenes de Docker no están
-# disponibles automáticamente. Este script:
-#   1. Construye la imagen con Docker
-#   2. La exporta como tar (docker save)
-#   3. La importa en containerd de K3s (k3s ctr images import)
-#
-# Para agregar un nuevo microservicio, solo agrega una entrada al
-# array SERVICES al final de la sección de configuración.
 # ============================================================================
 set -euo pipefail
 
@@ -47,7 +36,6 @@ NC='\033[0m'
 # ============================================================================
 REPO_ROOT="$(cd "${BASE_DIR}/../.." && pwd)"
 
-# Tag para imágenes locales de develop
 LOCAL_TAG="local"
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
