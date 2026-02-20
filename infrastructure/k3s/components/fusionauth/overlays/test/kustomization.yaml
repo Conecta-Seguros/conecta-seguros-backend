@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: test
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: test
+
+patches:
+  - target:
+      kind: Deployment
+      name: fusionauth
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 250m
+            memory: 768Mi
+            ephemeral-storage: 1Gi
+          limits:
+            cpu: "1"
+            memory: 1536Mi
+            ephemeral-storage: 2Gi
+      - op: replace
+        path: /spec/template/spec/initContainers/0/resources
+        value:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: infrastructure-high
+
+  - target:
+      kind: Ingress
+      name: fusionauth-ingress
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: auth-test.caicedoseguros.com
+      - op: replace
+        path: /spec/tls/0/secretName
+        value: caicedoseguros-test-tls-cert
+      - op: replace
+        path: /spec/rules/0/host
+        value: auth-test.caicedoseguros.com
+      - op: replace
+        path: /metadata/annotations/cert-manager.io~1cluster-issuer
+        value: letsencrypt-staging
+
+  - target:
+      kind: ServiceMonitor
+      name: fusionauth
+    patch: |
+      - op: add
+        path: /spec/namespaceSelector
+        value:
+          matchNames:
+            - test
