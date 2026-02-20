@@ -13,6 +13,42 @@ labels:
 
 patches:
   - target:
+      kind: LimitRange
+      name: resource-constraints
+    patch: |
+      apiVersion: v1
+      kind: LimitRange
+      metadata:
+        name: resource-constraints
+      spec:
+        limits:
+          - type: Container
+            default:
+              cpu: 500m
+              memory: 512Mi
+            defaultRequest:
+              cpu: 100m
+              memory: 128Mi
+            max:
+              cpu: "4"
+              memory: 8Gi
+            min:
+              cpu: 25m
+              memory: 32Mi
+            maxLimitRequestRatio:
+              cpu: "8"
+              memory: "8"
+          - type: Pod
+            max:
+              cpu: "6"
+              memory: 12Gi
+          - type: PersistentVolumeClaim
+            max:
+              storage: 100Gi
+            min:
+              storage: 256Mi
+
+  - target:
       kind: ResourceQuota
       name: compute-resources
     patch: |
@@ -22,13 +58,29 @@ patches:
         name: compute-resources
       spec:
         hard:
-          requests.cpu: "4"
-          requests.memory: 8Gi
+          requests.cpu: "6"
+          requests.memory: 16Gi
           limits.cpu: "8"
-          limits.memory: 16Gi
-          persistentvolumeclaims: "10"
+          limits.memory: 24Gi
+          persistentvolumeclaims: "15"
           services.loadbalancers: "1"
-          count/deployments.apps: "15"
+          count/deployments.apps: "20"
           count/statefulsets.apps: "5"
           count/jobs.batch: "10"
           count/cronjobs.batch: "5"
+
+  - target:
+      kind: ResourceQuota
+      name: object-counts
+    patch: |
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: object-counts
+      spec:
+        hard:
+          configmaps: "30"
+          secrets: "30"
+          services: "20"
+          count/ingresses.networking.k8s.io: "10"
+          replicationcontrollers: "0"
