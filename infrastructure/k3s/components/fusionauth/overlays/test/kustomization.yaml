@@ -52,7 +52,7 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: auth-test.caicedoseguros.com
-      - op: replace
+      - op: add
         path: /metadata/annotations/cert-manager.io~1cluster-issuer
         value: letsencrypt-staging
 

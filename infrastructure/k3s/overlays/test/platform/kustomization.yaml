@@ -30,8 +30,8 @@ patches:
               cpu: 100m
               memory: 128Mi
             max:
-              cpu: "4"
-              memory: 8Gi
+              cpu: "2"
+              memory: 4Gi
             min:
               cpu: 25m
               memory: 32Mi
@@ -40,8 +40,8 @@ patches:
               memory: "8"
           - type: Pod
             max:
-              cpu: "6"
-              memory: 12Gi
+              cpu: "3"
+              memory: 8Gi
           - type: PersistentVolumeClaim
             max:
               storage: 100Gi
@@ -58,10 +58,10 @@ patches:
         name: compute-resources
       spec:
         hard:
-          requests.cpu: "6"
-          requests.memory: 16Gi
-          limits.cpu: "8"
-          limits.memory: 24Gi
+          requests.cpu: "2500m"
+          requests.memory: 8Gi
+          limits.cpu: "3"
+          limits.memory: 10Gi
           persistentvolumeclaims: "15"
           services.loadbalancers: "1"
           count/deployments.apps: "20"

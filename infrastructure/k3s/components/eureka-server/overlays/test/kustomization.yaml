@@ -34,6 +34,10 @@ patches:
         path: /spec/template/spec/priorityClassName
         value: infrastructure-high
       - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+      - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
           name: EUREKA_HOSTNAME

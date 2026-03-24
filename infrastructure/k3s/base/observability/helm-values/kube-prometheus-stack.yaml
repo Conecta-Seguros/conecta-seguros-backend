@@ -94,7 +94,10 @@ alertmanager:
 grafana:
   enabled: true
 
-  adminUser: admin
+  admin:
+    existingSecret: caicedo-seguros-secrets
+    userKey: GRAFANA_ADMIN_USER
+    passwordKey: GRAFANA_ADMIN_PASSWORD
 
   persistence:
     enabled: false

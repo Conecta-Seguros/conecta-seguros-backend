@@ -93,7 +93,7 @@ spec:
               cpu: "1"
               memory: 1Gi
 
-          # Startup: da tiempo al JVM + Spring Boot para arrancar
+          # Startup:
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -103,7 +103,7 @@ spec:
             failureThreshold: 30
             timeoutSeconds: 3
 
-          # Readiness: ¿puede recibir tráfico?
+          # Readiness:
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
@@ -113,7 +113,7 @@ spec:
             failureThreshold: 3
             timeoutSeconds: 5
 
-          # Liveness: ¿está vivo?
+          # Liveness:
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -140,7 +140,3 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 100Mi
-
-      # Pull image from GHCR (private registry)
-      imagePullSecrets:
-        - name: ghcr-credentials

@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: eureka-server
     app.kubernetes.io/component: identity
     app.kubernetes.io/part-of: caicedo-seguros
-    caicedo.seguros/tier: application
+    caicedo.seguros/tier: infrastructure
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "9011"
