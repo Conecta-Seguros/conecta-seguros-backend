@@ -14,14 +14,6 @@
 	path = news-service
 	url = https://github.com/Conecta-Seguros/news-service.git
 	branch = develop
-[submodule "reports-service"]
-	path = reports-service
-	url = https://github.com/Conecta-Seguros/reports-service.git
-	branch = develop
-[submodule "batch-processor"]
-	path = batch-processor
-	url = https://github.com/Conecta-Seguros/batch-processor.git
-	branch = develop
 [submodule "products-service"]
 	path = products-service
 	url = https://github.com/Conecta-Seguros/products-service.git
