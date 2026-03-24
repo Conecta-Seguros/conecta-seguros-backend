@@ -39,6 +39,7 @@ setup_repos() {
 
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
   helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
+  helm repo add kite https://kite-org.github.io/kite/ 2>/dev/null || true
   helm repo update
 
   echo -e "${GREEN}[OK]${NC} Repositorios actualizados"
@@ -100,6 +101,59 @@ setup_postgres_exporter_secret() {
     --dry-run=client -o yaml | kubectl apply -f -
 
   echo -e "${GREEN}[OK]${NC} Secret 'postgres-exporter-credentials' configurado"
+}
+
+# ============================================================================
+# KITE SECRET
+# ============================================================================
+setup_kite_secret() {
+  local env=$1
+  local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
+
+  echo -e "${CYAN}[3b/6] Configurando credenciales de Kite...${NC}"
+
+  KITE_ADMIN_PASSWORD=""
+  KITE_JWT_SECRET=""
+  KITE_ENCRYPT_KEY=""
+
+  if [ -f "$env_file" ]; then
+    KITE_ADMIN_PASSWORD=$(get_env_value "$env_file" "KITE_ADMIN_PASSWORD")
+    KITE_JWT_SECRET=$(get_env_value "$env_file" "KITE_JWT_SECRET")
+    KITE_ENCRYPT_KEY=$(get_env_value "$env_file" "KITE_ENCRYPT_KEY")
+  fi
+
+  local generated=false
+
+  if [ -z "$KITE_ADMIN_PASSWORD" ]; then
+    KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD generado: ${KITE_ADMIN_PASSWORD}"
+  fi
+
+  if [ -z "$KITE_JWT_SECRET" ]; then
+    KITE_JWT_SECRET=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET generado: ${KITE_JWT_SECRET}"
+  fi
+
+  if [ -z "$KITE_ENCRYPT_KEY" ]; then
+    KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY generado: ${KITE_ENCRYPT_KEY}"
+  fi
+
+  if [ "$generated" = true ]; then
+    echo -e "${YELLOW}[WARN]${NC} Agregá los valores generados a: ${env_file}"
+    echo -e "       KITE_ADMIN_PASSWORD=..."
+    echo -e "       KITE_JWT_SECRET=..."
+    echo -e "       KITE_ENCRYPT_KEY=..."
+  fi
+
+  export KITE_ADMIN_PASSWORD
+  export KITE_JWT_SECRET
+  export KITE_ENCRYPT_KEY
+
+  echo -e "${GREEN}[OK]${NC} Credenciales de Kite configuradas"
 }
 
 # ============================================================================
@@ -166,6 +220,23 @@ install_charts() {
     --timeout 3m \
     2>&1 | tail -3
   echo -e "  ${GREEN}[OK]${NC} postgres-exporter (may CrashLoop until PostgreSQL is ready)"
+
+  # --- Kite Dashboard ---
+  setup_kite_secret "$env"
+  echo -e "  → kite dashboard..."
+  [ -f "${SCRIPT_DIR}/../overlays/${env}/observability/helm-values/kite-test-overrides.yaml" ] && \
+    KITE_EXTRA_VALUES="--values ${SCRIPT_DIR}/../overlays/${env}/observability/helm-values/kite-test-overrides.yaml" || \
+    KITE_EXTRA_VALUES=""
+  helm upgrade --install kite kite/kite \
+    --namespace "${NAMESPACE}" \
+    --values "${BASE_VALUES}/kite.yaml" \
+    ${KITE_EXTRA_VALUES} \
+    --set superUser.password="${KITE_ADMIN_PASSWORD}" \
+    --set jwtSecret="${KITE_JWT_SECRET}" \
+    --set encryptKey="${KITE_ENCRYPT_KEY}" \
+    --wait --timeout 3m \
+    2>&1 | tail -3
+  echo -e "  ${GREEN}[OK]${NC} kite dashboard"
 }
 
 # ============================================================================
@@ -218,6 +289,8 @@ show_status() {
   echo "                User: admin | Pass: ${GRAFANA_PASS}"
   echo "  Prometheus:   kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n ${NAMESPACE}"
   echo "  Alertmanager: kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n ${NAMESPACE}"
+  echo "  Kite:         kubectl port-forward svc/kite 8090:8090 -n ${NAMESPACE}"
+  echo "                User: admin | Pass: (see .env KITE_ADMIN_PASSWORD)"
 }
 
 # ============================================================================
@@ -228,7 +301,7 @@ cmd_uninstall() {
   echo -e "${YELLOW}Press Ctrl+C to cancel, or wait 5 seconds...${NC}"
   sleep 5
 
-  for release in postgres-exporter blackbox-exporter promtail loki kube-prometheus-stack; do
+  for release in kite postgres-exporter blackbox-exporter promtail loki kube-prometheus-stack; do
     echo -e "  Uninstalling ${release}..."
     helm uninstall "$release" -n "${NAMESPACE}" 2>/dev/null || true
   done

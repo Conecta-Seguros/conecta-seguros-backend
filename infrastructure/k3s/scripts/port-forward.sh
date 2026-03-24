@@ -32,6 +32,7 @@ SERVICES=(
   "Grafana|observability|svc/kube-prometheus-stack-grafana|3000:80"
   "Prometheus|observability|svc/kube-prometheus-stack-prometheus|9090:9090"
   "Alertmanager|observability|svc/kube-prometheus-stack-alertmanager|9093:9093"
+  "Kite|observability|svc/kite|8090:8080"
 )
 
 # ============================================================================

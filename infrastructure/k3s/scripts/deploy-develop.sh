@@ -320,6 +320,7 @@ cmd_status() {
   echo "  PostgreSQL:   kubectl port-forward svc/postgresql-svc 5432:5432 -n ${env}"
   echo "  Grafana:      kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n observability"
   echo "  Prometheus:   kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n observability"
+  echo "  Kite:         kubectl port-forward svc/kite 8090:8090 -n observability"
 }
 
 # ============================================================================
