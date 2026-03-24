@@ -2,9 +2,11 @@
 # ============================================================================
 #
 # Uso:
-#   ./scripts/deploy-develop.sh deploy   develop
-#   ./scripts/deploy-develop.sh status   develop
-#   ./scripts/deploy-develop.sh destroy  develop
+#   ./scripts/deploy.sh deploy   develop
+#   ./scripts/deploy.sh deploy   test
+#   ./scripts/deploy.sh deploy   production
+#   ./scripts/deploy.sh status   <env>
+#   ./scripts/deploy.sh destroy  <env>
 #
 # ============================================================================
 set -euo pipefail
@@ -73,6 +75,102 @@ wait_for_deployment() {
 }
 
 # ============================================================================
+# VALIDATE ENV FILE
+# ============================================================================
+validate_env_file() {
+  local env_file="$1"
+  local env="$2"
+  local errors=0
+
+  echo -e "  Validating secrets file..."
+
+  # Check for empty values (KEY=)
+  local empty_vars
+  empty_vars=$(grep -E '^[A-Z_]+=\s*$' "$env_file" | cut -d= -f1 || true)
+  if [ -n "$empty_vars" ]; then
+    while IFS= read -r var; do
+      [ -n "$var" ] && fail "Empty variable: ${var}" && ((errors++)) || true
+    done <<< "$empty_vars"
+  fi
+
+  if [ $errors -gt 0 ]; then
+    echo ""
+    fail "Found ${errors} empty variable(s) in .env — fill them before deploying to ${env}"
+    return 1
+  fi
+
+  ok "Secrets file validated (no empty variables)"
+}
+
+# ============================================================================
+# SAFETY GATE (per environment)
+# ============================================================================
+safety_gate() {
+  local env="$1"
+
+  case "$env" in
+
+    develop)
+      # No gate for develop — live fast
+      ;;
+
+    test)
+      echo ""
+      echo -e "${YELLOW}${BOLD}⚠  Deploying to TEST environment (VPS 168.231.65.156)${NC}"
+      echo -e "${YELLOW}   This will affect the shared test namespace.${NC}"
+      echo ""
+
+      # Validate .env completeness
+      local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
+      if [ -f "$env_file" ]; then
+        validate_env_file "$env_file" "$env" || exit 1
+      fi
+
+      echo -e "  Continue? Press ${BOLD}Ctrl+C${NC} to cancel, or wait 5 seconds..."
+      sleep 5
+      ok "Proceeding with test deploy"
+      ;;
+
+    production)
+      echo ""
+      echo -e "${RED}${BOLD}🚨  PRODUCTION DEPLOY — READ CAREFULLY${NC}"
+      echo -e "${RED}   Target: caicedoseguros.com (LIVE ENVIRONMENT)${NC}"
+      echo -e "${RED}   This affects REAL users and REAL data.${NC}"
+      echo ""
+
+      # Validate .env completeness
+      local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
+      if [ -f "$env_file" ]; then
+        validate_env_file "$env_file" "$env" || exit 1
+      else
+        fail "Production .env not found at ${env_file}"
+        exit 1
+      fi
+
+      # Validate no 'latest' or 'local' image tags in production overlays
+      echo -e "  Checking for unsafe image tags..."
+      if grep -r "image:.*:latest\|image:.*:local\|newTag:.*latest\|newTag:.*local" \
+         "${BASE_DIR}/components/"*/overlays/production/ 2>/dev/null | grep -v "^Binary"; then
+        fail "Found 'latest' or 'local' image tags in production overlays — use versioned tags"
+        exit 1
+      fi
+      ok "Image tags look safe"
+
+      # Double confirmation
+      echo ""
+      echo -e "${RED}${BOLD}  Type exactly 'YES' (uppercase) to confirm production deploy:${NC}"
+      read -r confirmation
+      if [ "$confirmation" != "YES" ]; then
+        echo -e "${YELLOW}  Deploy cancelled.${NC}"
+        exit 0
+      fi
+
+      ok "Production deploy confirmed"
+      ;;
+  esac
+}
+
+# ============================================================================
 # DEPLOY
 # ============================================================================
 cmd_deploy() {
@@ -84,6 +182,9 @@ cmd_deploy() {
   echo " DEPLOYING: ${env}"
   echo "============================================"
   echo -e "${NC}"
+
+  # ── Safety gate ──
+  safety_gate "$env"
 
   # ── 0. Preflight checks ──
   step "0/9" "Preflight checks"
@@ -315,12 +416,28 @@ cmd_status() {
   echo ""
 
   echo -e "${CYAN}── Access ──${NC}"
+  if [ "$env" = "test" ] || [ "$env" = "production" ]; then
+    case "$env" in
+      test)
+        echo "  FusionAuth:   https://auth-test.caicedoseguros.com"
+        echo "  Grafana:      https://grafana.test.caicedoseguros.com"
+        echo "  Kite:         https://kite.test.caicedoseguros.com"
+        ;;
+      production)
+        echo "  FusionAuth:   https://auth.caicedoseguros.com"
+        echo "  Grafana:      https://grafana.caicedoseguros.com"
+        echo "  Kite:         https://kite.caicedoseguros.com"
+        ;;
+    esac
+    echo ""
+    echo "  Port-forwards (if needed):"
+  fi
   echo "  Eureka:       kubectl port-forward svc/eureka-svc 8761:8761 -n ${env}"
   echo "  FusionAuth:   kubectl port-forward svc/fusionauth-svc 9011:9011 -n ${env}"
   echo "  PostgreSQL:   kubectl port-forward svc/postgresql-svc 5432:5432 -n ${env}"
   echo "  Grafana:      kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n observability"
   echo "  Prometheus:   kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n observability"
-  echo "  Kite:         kubectl port-forward svc/kite 8090:8090 -n observability"
+  echo "  Kite:         kubectl port-forward svc/kite 8090:8080 -n observability"
 }
 
 # ============================================================================
