@@ -45,7 +45,7 @@ kube-prometheus-stack:
         memory: 256Mi
     grafana.ini:
       server:
-        root_url: "https://grafana.test.caicedoseguros.com"
+        root_url: "https://grafana-test.caicedoseguros.com"
       analytics:
         reporting_enabled: false
         check_for_updates: false
@@ -57,11 +57,11 @@ kube-prometheus-stack:
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
         nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       hosts:
-        - grafana.test.caicedoseguros.com
+        - grafana-test.caicedoseguros.com
       tls:
         - secretName: grafana-test-tls
           hosts:
-            - grafana.test.caicedoseguros.com
+            - grafana-test.caicedoseguros.com
 
   prometheus-node-exporter:
     resources:
