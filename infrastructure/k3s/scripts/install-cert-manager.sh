@@ -54,7 +54,15 @@ resolve_cloudflare_token() {
     fi
   fi
 
-  # 3. Pedir interactivamente (sin eco en terminal)
+  # 3. Pedir interactivamente solo si hay TTY disponible
+  if [ ! -e /dev/tty ] || ! { true </dev/tty; } 2>/dev/null; then
+    echo -e "${RED}[ERROR]${NC} CLOUDFLARE_API_TOKEN no encontrado y no hay TTY disponible." >&2
+    echo -e "        Exportá la variable antes de ejecutar:" >&2
+    echo -e "        export CLOUDFLARE_API_TOKEN=<tu-token>" >&2
+    echo -e "        O agregala al archivo overlays/${env}/secrets/.env" >&2
+    exit 1
+  fi
+
   echo -e "${YELLOW}[INPUT]${NC} Token de API de Cloudflare no encontrado." >&2
   echo -e "        (Zone:DNS:Edit + Zone:Zone:Read sobre caicedoseguros.com)" >&2
   read -rsp "        Ingresa el token: " token_input </dev/tty
@@ -84,7 +92,8 @@ install_chart() {
     --version "${CERT_MANAGER_VERSION}" \
     --set crds.enabled=true \
     --set global.leaderElection.namespace="${NAMESPACE}" \
-    --wait --timeout 5m \
+    --atomic --cleanup-on-fail \
+    --wait --timeout 10m \
     2>&1 | tail -5
 
   echo -e "${GREEN}[OK]${NC} cert-manager ${CERT_MANAGER_VERSION} instalado"
