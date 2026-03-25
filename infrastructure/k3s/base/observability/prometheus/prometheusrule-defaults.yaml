@@ -27,8 +27,10 @@ spec:
 
         - alert: FusionAuthHighMemory
           expr: |
-            (container_memory_working_set_bytes{pod=~"fusionauth-.*"}
-             / container_spec_memory_limit_bytes{pod=~"fusionauth-.*"}) > 0.85
+            (
+              container_memory_working_set_bytes{pod=~"fusionauth-.*", container!=""}
+              / (container_spec_memory_limit_bytes{pod=~"fusionauth-.*", container!=""} > 0)
+            ) > 0.85
           for: 5m
           labels:
             severity: warning
@@ -130,9 +132,13 @@ spec:
 
         - alert: PostgreSQLCacheHitRateLow
           expr: |
-            pg_stat_database_blks_hit{datname!~"template.*"}
-             / (pg_stat_database_blks_hit{datname!~"template.*"}
-                + pg_stat_database_blks_read{datname!~"template.*"}) < 0.95
+            (
+              pg_stat_database_blks_hit{datname!~"template.*"}
+              / (
+                (pg_stat_database_blks_hit{datname!~"template.*"}
+                  + pg_stat_database_blks_read{datname!~"template.*"}) > 0
+              )
+            ) < 0.95
           for: 15m
           labels:
             severity: warning
