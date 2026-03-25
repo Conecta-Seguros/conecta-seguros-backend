@@ -270,9 +270,11 @@ install_charts() {
   # --- Kite Dashboard ---
   setup_kite_secret "$env"
   echo -e "  → kite dashboard..."
-  [ -f "${SCRIPT_DIR}/../overlays/${env}/observability/helm-values/kite-test-overrides.yaml" ] && \
-    KITE_EXTRA_VALUES="--values ${SCRIPT_DIR}/../overlays/${env}/observability/helm-values/kite-test-overrides.yaml" || \
-    KITE_EXTRA_VALUES=""
+  KITE_EXTRA_VALUES=""
+  local kite_overlay="${BASE_DIR}/overlays/${env}/observability/helm-values/kite-${env}-overrides.yaml"
+  if [ -f "$kite_overlay" ]; then
+    KITE_EXTRA_VALUES="--values ${kite_overlay}"
+  fi
   helm upgrade --install kite kite/kite \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kite.yaml" \
