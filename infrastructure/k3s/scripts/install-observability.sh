@@ -31,6 +31,20 @@ get_env_value() {
   grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2-
 }
 
+urlencode() {
+  local string="$1"
+  local encoded=""
+  local i c
+  for (( i=0; i<${#string}; i++ )); do
+    c="${string:$i:1}"
+    case "$c" in
+      [a-zA-Z0-9._~-]) encoded+="$c" ;;
+      *) encoded+=$(printf '%%%02X' "'$c") ;;
+    esac
+  done
+  echo "$encoded"
+}
+
 # ============================================================================
 # HELM REPOS
 # ============================================================================
@@ -92,8 +106,11 @@ setup_postgres_exporter_secret() {
     return
   fi
 
-  # DSN: postgres-exporter connects to PostgreSQL via K8s service DNS
-  local DSN="postgresql://${PG_USER}:${PG_PASS}@postgresql-svc.${env}.svc.cluster.local:5432/postgres?sslmode=disable"
+  # DSN: percent-encode credentials to handle special chars (@/:?;) in passwords
+  local PG_USER_ENC PG_PASS_ENC
+  PG_USER_ENC=$(urlencode "$PG_USER")
+  PG_PASS_ENC=$(urlencode "$PG_PASS")
+  local DSN="postgresql://${PG_USER_ENC}:${PG_PASS_ENC}@postgresql-svc.${env}.svc.cluster.local:5432/postgres?sslmode=disable"
 
   kubectl create secret generic postgres-exporter-credentials \
     --from-literal=DATA_SOURCE_NAME="${DSN}" \
