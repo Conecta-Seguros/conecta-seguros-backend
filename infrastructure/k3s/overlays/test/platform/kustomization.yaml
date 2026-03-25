@@ -1,0 +1,86 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/platform/namespace-scoped
+  - ../../../base/platform/namespace-scoped/network-policies/deny-all-egress.yaml
+
+namespace: test
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: test
+
+patches:
+  - target:
+      kind: LimitRange
+      name: resource-constraints
+    patch: |
+      apiVersion: v1
+      kind: LimitRange
+      metadata:
+        name: resource-constraints
+      spec:
+        limits:
+          - type: Container
+            default:
+              cpu: 500m
+              memory: 512Mi
+            defaultRequest:
+              cpu: 100m
+              memory: 128Mi
+            max:
+              cpu: "2"
+              memory: 4Gi
+            min:
+              cpu: 25m
+              memory: 32Mi
+            maxLimitRequestRatio:
+              cpu: "8"
+              memory: "8"
+          - type: Pod
+            max:
+              cpu: "3"
+              memory: 8Gi
+          - type: PersistentVolumeClaim
+            max:
+              storage: 100Gi
+            min:
+              storage: 256Mi
+
+  - target:
+      kind: ResourceQuota
+      name: compute-resources
+    patch: |
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: compute-resources
+      spec:
+        hard:
+          requests.cpu: "2500m"
+          requests.memory: 8Gi
+          limits.cpu: "3"
+          limits.memory: 10Gi
+          persistentvolumeclaims: "15"
+          services.loadbalancers: "1"
+          count/deployments.apps: "20"
+          count/statefulsets.apps: "5"
+          count/jobs.batch: "10"
+          count/cronjobs.batch: "5"
+
+  - target:
+      kind: ResourceQuota
+      name: object-counts
+    patch: |
+      apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: object-counts
+      spec:
+        hard:
+          configmaps: "30"
+          secrets: "30"
+          services: "20"
+          count/ingresses.networking.k8s.io: "10"
+          replicationcontrollers: "0"

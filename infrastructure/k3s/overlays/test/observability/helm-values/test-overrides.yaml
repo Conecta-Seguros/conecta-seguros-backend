@@ -1,0 +1,123 @@
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      retention: 7d
+      retentionSize: "4GB"
+      scrapeInterval: "60s"
+      evaluationInterval: "60s"
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 500m
+          memory: 1500Mi
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 8Gi
+
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 1Gi
+
+  grafana:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    grafana.ini:
+      server:
+        root_url: "https://grafana-test.caicedoseguros.com"
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+    ingress:
+      enabled: true
+      ingressClassName: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-staging
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      hosts:
+        - grafana-test.caicedoseguros.com
+      tls:
+        - secretName: grafana-test-tls
+          hosts:
+            - grafana-test.caicedoseguros.com
+
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 15m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 15m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi
+
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+loki:
+  loki:
+    limits_config:
+      retention_period: 168h
+      ingestion_rate_mb: 5
+      ingestion_burst_size_mb: 10
+  singleBinary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    persistence:
+      size: 8Gi
+
+promtail:
+  resources:
+    requests:
+      cpu: 15m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+  config:
+    clients:
+      - url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+        tenant_id: caicedo-seguros
+        external_labels:
+          environment: test

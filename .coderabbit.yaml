@@ -1,0 +1,36 @@
+language: es
+tone_instructions: >-
+  Sé directo y técnico. Enfócate en bugs, seguridad, performance y
+  mejores prácticas de Spring Boot. Prioriza problemas reales sobre
+  sugerencias cosméticas. Responde en español.
+
+reviews:
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+
+  review_status: true
+
+  auto_title_placeholder: "[Title]:"
+
+  poem: false
+
+  profile: chill
+
+  path_filters:
+    - "!**/*.md"
+    - "!docs/**"
+    - "!.github/dependabot.yml"
+    - "!**/test/**"
+
+  tools:
+    pmd:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+    hadolint:
+      enabled: true
+
+chat:
+  auto_reply: true

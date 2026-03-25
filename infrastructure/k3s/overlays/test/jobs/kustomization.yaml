@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/jobs
+  - ../../../base/jobs/network-policies.yaml
+
+namespace: test
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: test
+
+patches:
+  - target:
+      kind: CronJob
+      name: postgres-backup
+    patch: |
+      - op: replace
+        path: /spec/schedule
+        value: "0 3 * * *"
+  - target:
+      kind: CronJob
+      name: postgres-maintenance
+    patch: |
+      - op: replace
+        path: /spec/schedule
+        value: "0 4 1,15 * *"
+  - target:
+      kind: CronJob
+      name: fusionauth-export
+    patch: |
+      - op: replace
+        path: /spec/schedule
+        value: "0 3 1,15 * *"
+  - target:
+      kind: PersistentVolumeClaim
+      name: backup-pvc
+    patch: |
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 3Gi

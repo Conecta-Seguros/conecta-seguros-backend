@@ -1,0 +1,58 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-netpol
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: caicedo-seguros
+    caicedo.seguros/tier: data
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # FusionAuth → PostgreSQL
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fusionauth
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Jobs (backup, maintenance, migration) → PostgreSQL
+    - from:
+        - podSelector:
+            matchLabels:
+              caicedo.seguros/tier: data-jobs
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Postgres Exporter (observability namespace) → PostgreSQL
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus-postgres-exporter
+      ports:
+        - protocol: TCP
+          port: 5432
+
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

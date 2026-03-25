@@ -40,3 +40,8 @@ out/
 
 ### Environment ###
 *.env
+secrets.yaml
+
+# Logs
+infrastructure/k3s/scripts/.pf-pids
+infrastructure/k3s/scripts/.pf-logs

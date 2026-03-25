@@ -8,9 +8,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: clients_db
     ports:
-      - "5434:5432"
+      - "54341:5432"
     volumes:
-      - clients_db_data:/var/lib/postgresql/data
+      - clients_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 
@@ -22,9 +22,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: products_db
     ports:
-      - "5435:5432"
+      - "54352:5432"
     volumes:
-      - products_db_data:/var/lib/postgresql/data
+      - products_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 
@@ -36,9 +36,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: payments_db
     ports:
-      - "5436:5432"
+      - "54363:5432"
     volumes:
-      - payments_db_data:/var/lib/postgresql/data
+      - payments_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 
@@ -50,9 +50,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: news_db
     ports:
-      - "5437:5432"
+      - "54374:5432"
     volumes:
-      - news_db_data:/var/lib/postgresql/data
+      - news_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 
@@ -64,9 +64,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: reports_db
     ports:
-      - "5438:5432"
+      - "54385:5432"
     volumes:
-      - reports_db_data:/var/lib/postgresql/data
+      - reports_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 
@@ -80,7 +80,7 @@ services:
     ports:
       - "5439:5432"
     volumes:
-      - keycloak_db_data:/var/lib/postgresql/data
+      - keycloak_db_data:/var/lib/postgresql
     networks:
       - conecta_seguros_network
 

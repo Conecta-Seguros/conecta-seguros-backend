@@ -1,0 +1,76 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+namespace: test
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: test
+
+patches:
+  - target:
+      kind: Deployment
+      name: eureka-server
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ghcr.io/conecta-seguros/discovery-server:develop-latest
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 150m
+            memory: 384Mi
+          limits:
+            cpu: 500m
+            memory: 768Mi
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: infrastructure-high
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: EUREKA_HOSTNAME
+          valueFrom:
+            secretKeyRef:
+              name: caicedo-seguros-secrets
+              key: EUREKA_HOSTNAME
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: EUREKA_PREFER_IP_ADDRESS
+          valueFrom:
+            secretKeyRef:
+              name: caicedo-seguros-secrets
+              key: EUREKA_PREFER_IP_ADDRESS
+
+  - target:
+      kind: ConfigMap
+      name: eureka-server-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: eureka-server-config
+      data:
+        SPRING_PROFILES_ACTIVE: "k8s"
+
+  - target:
+      kind: ServiceMonitor
+      name: eureka-server
+    patch: |
+      - op: add
+        path: /spec/namespaceSelector
+        value:
+          matchNames:
+            - test

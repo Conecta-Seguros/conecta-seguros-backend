@@ -1,0 +1,48 @@
+{
+  "mcpServers": {
+    "clientsDatabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${CLIENTSDATABASE_URL}"
+      ],
+      "env": "${CLIENTSDATABASE_URL}",
+      "trust": true,
+      "description": "Base de datos de clientes"
+    },
+    "productsDatabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${PRODUCTSDATABASE_URL}"
+      ],
+      "env": "${PRODUCTSDATABASE_URL}",
+      "trust": true,
+      "description": "Base de datos de productos"
+    },
+    "newsDatabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${NEWSDATABASE_URL}"
+      ],
+      "env": "${NEWSDATABASE_URL}",
+      "trust": true,
+      "description": "Base de datos de novedades"
+    },
+    "paymentsDatabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${PAYMENTSDATABASE_URL}"
+      ],
+      "env": "${PAYMENTSDATABASE_URL}",
+      "trust": true,
+      "description": "Base de datos de pagos"
+    }
+  }
+}

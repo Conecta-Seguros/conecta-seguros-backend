@@ -1,0 +1,121 @@
+# ============================================================================
+# configmap-init.yaml - POSTGRESQL INIT SCRIPTS - BASE
+# ============================================================================
+# Scripts run ONLY on first boot (when PGDATA is empty).
+# Order: 00-include-conf.sh → 01-create-databases.sh (alphabetical)
+#
+# For existing data directories, the setup-config initContainer
+# handles injecting include_dir into postgresql.conf.
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-init
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: caicedo-seguros
+    caicedo.seguros/tier: data
+data:
+  00-include-conf.sh: |
+    #!/bin/bash
+    set -e
+    echo "--- Configuring include_dir for custom config ---"
+
+    # Add include_dir to postgresql.conf (first boot only)
+    if ! grep -q "include_dir = '/etc/postgresql/conf.d'" "$PGDATA/postgresql.conf" 2>/dev/null; then
+      echo "" >> "$PGDATA/postgresql.conf"
+      echo "# Custom configuration (Caicedo Seguros)" >> "$PGDATA/postgresql.conf"
+      echo "include_dir = '/etc/postgresql/conf.d'" >> "$PGDATA/postgresql.conf"
+      echo "[OK] include_dir added to postgresql.conf"
+    else
+      echo "[SKIP] include_dir already configured"
+    fi
+
+  01-create-databases.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "=========================================="
+    echo " Initializing Caicedo Seguros databases"
+    echo "=========================================="
+
+    create_db_and_user() {
+      local db_name="$1"
+      local db_user="$2"
+      local db_pass="$3"
+      local description="$4"
+
+      if [ -z "$db_name" ] || [ -z "$db_user" ] || [ -z "$db_pass" ]; then
+        echo "    [SKIP] ${description} - credentials not configured"
+        return 0
+      fi
+
+      echo ""
+      echo "--- Creating: ${description} ---"
+      echo "    Database: ${db_name} | User: ${db_user}"
+
+      # Create user (idempotent)
+      psql -v ON_ERROR_STOP=0 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
+        DO \$\$
+        BEGIN
+          IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${db_user}') THEN
+            CREATE ROLE "${db_user}" WITH LOGIN PASSWORD '${db_pass}';
+          ELSE
+            ALTER ROLE "${db_user}" WITH PASSWORD '${db_pass}';
+          END IF;
+        END
+        \$\$;
+    EOSQL
+
+      # Create database (idempotent)
+      psql -v ON_ERROR_STOP=0 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
+        SELECT 'CREATE DATABASE "${db_name}" OWNER "${db_user}" ENCODING "UTF8" LC_COLLATE "en_US.utf8" LC_CTYPE "en_US.utf8"'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db_name}')
+        \gexec
+    EOSQL
+
+      # Grant privileges
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
+        GRANT ALL PRIVILEGES ON DATABASE "${db_name}" TO "${db_user}";
+        ALTER DATABASE "${db_name}" OWNER TO "${db_user}";
+    EOSQL
+
+      # Schema privileges
+      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "${db_name}" <<-EOSQL
+        GRANT ALL ON SCHEMA public TO "${db_user}";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "${db_user}";
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "${db_user}";
+    EOSQL
+
+      echo "    [OK] ${description}"
+    }
+
+    # =====================================================
+    # Create databases
+    # =====================================================
+
+    create_db_and_user \
+      "${POSTGRES_FUSIONAUTH_DB}" "${POSTGRES_FUSIONAUTH_USER}" "${POSTGRES_FUSIONAUTH_PASSWORD}" \
+      "FusionAuth (Identity Provider)"
+
+    create_db_and_user \
+      "${POSTGRES_GRAFANA_DB}" "${POSTGRES_GRAFANA_USER}" "${POSTGRES_GRAFANA_PASSWORD}" \
+      "Grafana (Observability Dashboards)"
+
+    # =====================================================
+    # Security hardening
+    # =====================================================
+    echo ""
+    echo "--- Security hardening ---"
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
+      REVOKE ALL ON DATABASE postgres FROM PUBLIC;
+      REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+    EOSQL
+    echo "    [OK] Public access revoked"
+
+    echo ""
+    echo "=========================================="
+    echo " All databases initialized!"
+    echo "=========================================="
+    psql --username "$POSTGRES_USER" --dbname postgres -c "\l"

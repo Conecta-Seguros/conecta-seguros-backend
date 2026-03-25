@@ -1,0 +1,72 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/jobs
+  - ../../../base/jobs/network-policies.yaml
+
+namespace: production
+
+labels:
+  - pairs:
+      caicedo.seguros/environment: production
+
+patches:
+  - target:
+      kind: CronJob
+      name: postgres-backup
+    patch: |
+      - op: replace
+        path: /spec/schedule
+        value: "0 */6 * * *"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/requests/cpu
+        value: "200m"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/cpu
+        value: "1"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+
+  - target:
+      kind: CronJob
+      name: postgres-maintenance
+    patch: |
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/cpu
+        value: "2"
+      - op: replace
+        path: /spec/jobTemplate/spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+
+  - target:
+      kind: Job
+      name: db-migration
+    patch: |
+      - op: replace
+        path: /spec/activeDeadlineSeconds
+        value: 1800
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "200m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+
+  - target:
+      kind: PersistentVolumeClaim
+      name: backup-pvc
+    patch: |
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: 20Gi

@@ -1,0 +1,81 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fusionauth-netpol
+  labels:
+    app.kubernetes.io/name: fusionauth
+    app.kubernetes.io/component: identity
+    app.kubernetes.io/part-of: caicedo-seguros
+    caicedo.seguros/tier: application
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fusionauth
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 9011
+
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              caicedo.seguros/tier: infrastructure
+      ports:
+        - protocol: TCP
+          port: 9011
+
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9011
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      ports:
+        - protocol: TCP
+          port: 587
+        - protocol: TCP
+          port: 465
+        - protocol: TCP
+          port: 25
+
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      ports:
+        - protocol: TCP
+          port: 443

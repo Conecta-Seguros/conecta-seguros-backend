@@ -1,0 +1,58 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fusionauth-reader
+  labels:
+    caicedo.seguros/tier: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-reader
+subjects:
+  - kind: ServiceAccount
+    name: fusionauth
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eureka-discovery
+  labels:
+    caicedo.seguros/tier: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-discovery
+subjects:
+  - kind: ServiceAccount
+    name: eureka-server
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-discovery
+  labels:
+    caicedo.seguros/tier: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-discovery
+subjects:
+  - kind: ServiceAccount
+    name: gateway-service
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: job-runner-jobs
+  labels:
+    caicedo.seguros/tier: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app-jobs
+subjects:
+  - kind: ServiceAccount
+    name: job-runner

@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eureka-server
+  labels:
+    caicedo.seguros/tier: infrastructure
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eureka-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: eureka-server
+        app.kubernetes.io/component: service-discovery
+        app.kubernetes.io/part-of: caicedo-seguros
+        caicedo.seguros/tier: infrastructure
+        caicedo.seguros/metrics: "true"
+      annotations:
+        checksum/config: "PLACEHOLDER"
+    spec:
+      serviceAccountName: eureka-server
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: eureka-server
+          image: caicedo-seguros/discovery-server:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8761
+              protocol: TCP
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: eureka-server-config
+                  key: SPRING_PROFILES_ACTIVE
+
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: eureka-server-config
+                  key: JAVA_OPTS
+
+            - name: EUREKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_USERNAME
+            - name: EUREKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_PASSWORD
+            - name: EUREKA_PREFER_IP_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_PREFER_IP_ADDRESS
+            - name: EUREKA_HOSTNAME
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_HOSTNAME
+            - name: EUREKA_PEER_URLS
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_PEER_URLS
+            - name: EUREKA_ZONE
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: EUREKA_ZONE
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          # Startup:
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 30
+            timeoutSeconds: 3
+
+          # Readiness:
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+
+          # Liveness:
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 5
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi

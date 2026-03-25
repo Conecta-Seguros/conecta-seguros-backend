@@ -1,0 +1,85 @@
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+
+config:
+  clients:
+    - url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+      tenant_id: caicedo-seguros
+      batchwait: 1s
+      batchsize: 1048576
+      timeout: 10s
+      backoff_config:
+        min_period: 500ms
+        max_period: 5m
+        max_retries: 10
+
+  snippets:
+    extraRelabelConfigs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        target_label: app
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+        target_label: component
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_version]
+        target_label: version
+
+    pipelineStages:
+      - match:
+          selector: '{app=~".+-service"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  message: message
+                  logger: logger_name
+                  thread: thread_name
+                  trace_id: traceId
+                  span_id: spanId
+            - labels:
+                level:
+                trace_id:
+
+      - match:
+          selector: '{app="fusionauth"}'
+          stages:
+            - regex:
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3})\s+(?P<level>\w+)\s+.*'
+            - labels:
+                level:
+
+      - match:
+          selector: '{app=~"postgresql.*"}'
+          stages:
+            - regex:
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}\s\w+)\s\[(?P<pid>\d+)\]\s(?P<level>\w+):'
+            - labels:
+                level:
+
+      - match:
+          selector: '{namespace=~".+"}'
+          stages:
+            - drop:
+                expression: '(GET /health|GET /actuator/health|GET /ready|GET /live)'
+                drop_counter_reason: health_check
+
+serviceMonitor:
+  enabled: true
+  labels:
+    caicedo.seguros/tier: infrastructure
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - DAC_READ_SEARCH
+  readOnlyRootFilesystem: true

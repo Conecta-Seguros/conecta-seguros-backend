@@ -1,0 +1,90 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: job-db-access
+  labels:
+    app.kubernetes.io/name: job-db-access
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backup
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 5432
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: job-migration-access
+  labels:
+    app.kubernetes.io/name: job-migration-access
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: data-management
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: migration
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 5432
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: job-cleanup-access
+  labels:
+    app.kubernetes.io/name: job-cleanup-access
+    app.kubernetes.io/component: network-policy
+    app.kubernetes.io/part-of: cluster-operations
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: maintenance
+      app.kubernetes.io/name: cluster-cleanup
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

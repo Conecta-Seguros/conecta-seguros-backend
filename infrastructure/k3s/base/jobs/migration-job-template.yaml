@@ -1,0 +1,129 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  labels:
+    app.kubernetes.io/name: db-migration
+    app.kubernetes.io/component: migration
+    app.kubernetes.io/part-of: caicedo-seguros
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-migration
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: job-runner
+      automountServiceAccountToken: false
+      priorityClassName: batch-low
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      initContainers:
+        - name: wait-for-db
+          image: postgres:18
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          env:
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: caicedo-seguros-secrets
+                  key: POSTGRES_ROOT_PASSWORD
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              echo "[$(date)] Waiting for PostgreSQL at postgresql-svc:5432..."
+              RETRIES=30
+              until pg_isready -h postgresql-svc -p 5432 -U "${PG_USER}" || [ $RETRIES -eq 0 ]; do
+                echo "[$(date)] Retrying... (${RETRIES} attempts remaining)"
+                RETRIES=$((RETRIES - 1))
+                sleep 2
+              done
+              if [ $RETRIES -eq 0 ]; then
+                echo "[$(date)] ERROR: PostgreSQL unavailable"
+                exit 1
+              fi
+              echo "[$(date)] PostgreSQL ready"
+
+      containers:
+        - name: flyway
+          image: flyway/flyway:12.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://postgresql-svc:5432/REPLACE_DB_NAME"
+            - name: FLYWAY_USER
+              value: "REPLACE_DB_USER"
+            - name: FLYWAY_PASSWORD
+              value: "REPLACE_DB_PASSWORD"
+            - name: FLYWAY_SCHEMAS
+              value: "public"
+            - name: FLYWAY_BASELINE_ON_MIGRATE
+              value: "true"
+            - name: FLYWAY_VALIDATE_ON_MIGRATE
+              value: "true"
+            - name: FLYWAY_OUT_OF_ORDER
+              value: "false"
+          args:
+            - info
+            - migrate
+            - info
+          volumeMounts:
+            - name: sql-migrations
+              mountPath: /flyway/sql
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: sql-migrations
+          configMap:
+            name: sql-migrations
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

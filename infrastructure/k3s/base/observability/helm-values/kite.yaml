@@ -1,0 +1,66 @@
+replicaCount: 1
+
+deploymentStrategy:
+  type: Recreate
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+service:
+  type: ClusterIP
+  port: 8080
+
+rbac:
+  create: true
+
+anonymousUserEnabled: false
+
+secret:
+  create: true
+
+# jwtSecret and encryptKey are overridden at install time via --set
+jwtSecret: "PLACEHOLDER_OVERRIDE_VIA_SET"
+encryptKey: "PLACEHOLDER_OVERRIDE_VIA_SET"
+
+superUser:
+  create: true
+  username: admin
+  # password is overridden at install time via --set superUser.password=...
+  password: ""
+
+db:
+  type: sqlite
+  sqlite:
+    persistence:
+      pvc:
+        enabled: true
+        size: 1Gi
+
+podLabels:
+  caicedo.seguros/component: kite
+  caicedo.seguros/tier: infrastructure
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
