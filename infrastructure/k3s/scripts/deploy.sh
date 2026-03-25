@@ -445,6 +445,7 @@ cmd_status() {
 # ============================================================================
 cmd_destroy() {
   local env=$1
+  local force=${2:-}
 
   echo -e "${RED}${BOLD}"
   echo "============================================"
@@ -453,8 +454,19 @@ cmd_destroy() {
   echo -e "${NC}"
 
   echo -e "${YELLOW}WARNING: This will delete all resources in namespace '${env}'${NC}"
-  echo -e "Press Ctrl+C to cancel, or wait 5 seconds..."
-  sleep 5
+
+  if [ "$force" = "--force" ]; then
+    warn "Proceeding without confirmation (--force)"
+  elif [ ! -t 0 ] || [ -n "${CI:-}" ]; then
+    fail "Non-interactive context detected (no TTY or CI=true). Use --force to confirm destruction."
+    exit 1
+  else
+    read -r -p "  Type 'yes' to confirm deletion of '${env}': " _confirm
+    if [ "$_confirm" != "yes" ]; then
+      echo -e "${YELLOW}  Cancelled.${NC}"
+      exit 0
+    fi
+  fi
 
   cd "$BASE_DIR"
 
@@ -481,9 +493,20 @@ cmd_destroy() {
   echo ""
 
   echo -e "${YELLOW}Delete PVCs in ${env}? This permanently destroys data.${NC}"
-  echo -e "Press Ctrl+C to keep PVCs, or wait 5 seconds to delete..."
-  sleep 5
-  kubectl delete pvc --all -n "$env" 2>/dev/null || true
+
+  if [ "$force" = "--force" ]; then
+    warn "Deleting PVCs without confirmation (--force)"
+    kubectl delete pvc --all -n "$env" 2>/dev/null || true
+  elif [ ! -t 0 ] || [ -n "${CI:-}" ]; then
+    warn "Non-interactive context — skipping PVC deletion. Run with --force to also delete PVCs."
+  else
+    read -r -p "  Type 'yes' to permanently delete all PVCs in '${env}': " _confirm_pvc
+    if [ "$_confirm_pvc" = "yes" ]; then
+      kubectl delete pvc --all -n "$env" 2>/dev/null || true
+    else
+      echo -e "${YELLOW}  PVCs kept.${NC}"
+    fi
+  fi
 
   echo ""
   echo -e "${GREEN}Environment ${env} destroyed${NC}"
@@ -521,6 +544,6 @@ esac
 case "$command" in
   deploy)  cmd_deploy "$env" ;;
   status)  cmd_status "$env" ;;
-  destroy) cmd_destroy "$env" ;;
+  destroy) cmd_destroy "$env" "${3:-}" ;;
   *)       usage ;;
 esac
