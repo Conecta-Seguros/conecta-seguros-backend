@@ -17,7 +17,7 @@ patches:
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/image
-        value: ghcr.io/conecta-seguros/discovery-server:develop-latest
+        value: ghcr.io/conecta-seguros/discovery-server:test
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
@@ -37,22 +37,6 @@ patches:
         path: /spec/template/spec/imagePullSecrets
         value:
           - name: ghcr-credentials
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: EUREKA_HOSTNAME
-          valueFrom:
-            secretKeyRef:
-              name: caicedo-seguros-secrets
-              key: EUREKA_HOSTNAME
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: EUREKA_PREFER_IP_ADDRESS
-          valueFrom:
-            secretKeyRef:
-              name: caicedo-seguros-secrets
-              key: EUREKA_PREFER_IP_ADDRESS
 
   - target:
       kind: ConfigMap
