@@ -119,7 +119,11 @@ build_service() {
   # Step 2: Export to tar
   local tar_file="/tmp/${name}-image.tar"
   echo -e "  ${CYAN}[2/3]${NC} Exporting image..."
-  docker save "${full_image}" -o "${tar_file}"
+  if ! docker save "${full_image}" -o "${tar_file}"; then
+    echo -e "  ${RED}[FAIL]${NC} docker save failed for ${full_image}"
+    rm -f "${tar_file}"
+    return 1
+  fi
   local size
   size=$(du -sh "${tar_file}" | cut -f1)
   echo -e "  ${GREEN}[OK]${NC} Exported (${size})"
