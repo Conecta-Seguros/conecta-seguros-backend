@@ -16,16 +16,32 @@ spec:
     - Egress
 
   ingress:
+    # FusionAuth → PostgreSQL
     - from:
-        - podSelector: {}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fusionauth
       ports:
         - protocol: TCP
           port: 5432
 
+    # Jobs (backup, maintenance, migration) → PostgreSQL
+    - from:
+        - podSelector:
+            matchLabels:
+              caicedo.seguros/tier: data-jobs
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Postgres Exporter (observability namespace) → PostgreSQL
     - from:
         - namespaceSelector:
             matchLabels:
-              caicedo.seguros/tier: infrastructure
+              kubernetes.io/metadata.name: observability
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus-postgres-exporter
       ports:
         - protocol: TCP
           port: 5432
