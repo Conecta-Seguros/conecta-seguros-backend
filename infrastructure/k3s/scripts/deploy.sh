@@ -82,6 +82,13 @@ validate_env_file() {
   local env="$2"
   local errors=0
 
+  # Variables explicitly allowed to be empty (optional / empty = default behavior)
+  local -a OPTIONAL_VARS=(
+    EUREKA_PEER_URLS          # empty = standalone mode (no HA clustering)
+    EUREKA_PREFER_IP_ADDRESS  # empty = uses hostname (Spring default)
+    EUREKA_ZONE               # empty = defaultZone (Spring default)
+  )
+
   echo -e "  Validating secrets file..."
 
   # Check for empty values (KEY=)
@@ -89,7 +96,14 @@ validate_env_file() {
   empty_vars=$(grep -E '^[A-Z_]+=\s*$' "$env_file" | cut -d= -f1 || true)
   if [ -n "$empty_vars" ]; then
     while IFS= read -r var; do
-      [ -n "$var" ] && fail "Empty variable: ${var}" && ((errors++)) || true
+      [ -z "$var" ] && continue
+      # Skip known optional variables
+      local is_optional=false
+      for opt in "${OPTIONAL_VARS[@]}"; do
+        [ "$var" = "$opt" ] && is_optional=true && break
+      done
+      [ "$is_optional" = true ] && continue
+      fail "Empty variable: ${var}" && ((errors++)) || true
     done <<< "$empty_vars"
   fi
 
