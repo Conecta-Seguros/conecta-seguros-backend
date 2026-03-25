@@ -115,10 +115,15 @@ setup_cloudflare_secret() {
     exit 1
   fi
 
-  kubectl create secret generic "${CLOUDFLARE_SECRET_NAME}" \
-    --from-literal=api-token="${token}" \
-    -n "${NAMESPACE}" \
-    --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${CLOUDFLARE_SECRET_NAME}
+  namespace: ${NAMESPACE}
+stringData:
+  api-token: "${token}"
+EOF
 
   echo -e "${GREEN}[OK]${NC} Secret '${CLOUDFLARE_SECRET_NAME}' configurado en namespace '${NAMESPACE}'"
 }
