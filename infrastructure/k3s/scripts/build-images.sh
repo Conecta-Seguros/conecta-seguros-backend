@@ -237,15 +237,20 @@ cmd_status() {
   echo -e "${BOLD}=== Images in K3s containerd ===${NC}"
   echo ""
 
+  local images_list
+  if ! images_list=$(sudo k3s ctr images ls 2>&1); then
+    echo -e "  ${RED}[FAIL]${NC} Could not query K3s containerd: ${images_list}"
+    return 1
+  fi
+
   for svc in "${SERVICES[@]}"; do
-    local name image full_image
+    local name image matched size
     name=$(get_name "$svc")
     image=$(get_image "$svc")
-    full_image="docker.io/${image}:${LOCAL_TAG}"
 
-    if sudo k3s ctr images ls | grep -q "${image}:${LOCAL_TAG}" 2>/dev/null; then
-      local size
-      size=$(sudo k3s ctr images ls | grep "${image}:${LOCAL_TAG}" | head -1 | awk '{print $NF}')
+    matched=$(echo "${images_list}" | grep "${image}:${LOCAL_TAG}" | head -1)
+    if [ -n "$matched" ]; then
+      size=$(echo "$matched" | awk '{print $NF}')
       echo -e "  ${GREEN}●${NC} ${name}: ${image}:${LOCAL_TAG} (${size})"
     else
       echo -e "  ${RED}○${NC} ${name}: not imported"
