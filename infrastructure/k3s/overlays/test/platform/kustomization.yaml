@@ -3,7 +3,6 @@ kind: Kustomization
 
 resources:
   - ../../../base/platform/namespace-scoped
-  - ../../../base/platform/namespace-scoped/network-policies/deny-all-egress.yaml
 
 namespace: test
 
