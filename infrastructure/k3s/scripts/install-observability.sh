@@ -125,68 +125,66 @@ setup_postgres_exporter_secret() {
 # ============================================================================
 setup_kite_secret() {
   local env=$1
-  local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
 
   echo -e "${CYAN}[3b/6] Configurando credenciales de Kite...${NC}"
 
-  # Try to recover previously persisted secrets from K8s (survive between runs)
-  if kubectl get secret kite-credentials -n "${NAMESPACE}" &>/dev/null; then
-    KITE_ADMIN_PASSWORD_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
-      -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' | base64 -d 2>/dev/null || true)
-    KITE_JWT_SECRET_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
-      -o jsonpath='{.data.KITE_JWT_SECRET}' | base64 -d 2>/dev/null || true)
-    KITE_ENCRYPT_KEY_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
-      -o jsonpath='{.data.KITE_ENCRYPT_KEY}' | base64 -d 2>/dev/null || true)
-  fi
-
+  # Priority 1: caicedo-seguros-secrets in app namespace (populated by manage-secrets.sh)
+  # Run: ./scripts/manage-secrets.sh setup <env>  before this script
+  local APP_SECRET="caicedo-seguros-secrets"
   KITE_ADMIN_PASSWORD=""
   KITE_JWT_SECRET=""
   KITE_ENCRYPT_KEY=""
 
-  if [ -f "$env_file" ]; then
-    KITE_ADMIN_PASSWORD=$(get_env_value "$env_file" "KITE_ADMIN_PASSWORD")
-    KITE_JWT_SECRET=$(get_env_value "$env_file" "KITE_JWT_SECRET")
-    KITE_ENCRYPT_KEY=$(get_env_value "$env_file" "KITE_ENCRYPT_KEY")
+  if kubectl get secret "${APP_SECRET}" -n "${env}" &>/dev/null; then
+    KITE_ADMIN_PASSWORD=$(kubectl get secret "${APP_SECRET}" -n "${env}" \
+      -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    KITE_JWT_SECRET=$(kubectl get secret "${APP_SECRET}" -n "${env}" \
+      -o jsonpath='{.data.KITE_JWT_SECRET}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    KITE_ENCRYPT_KEY=$(kubectl get secret "${APP_SECRET}" -n "${env}" \
+      -o jsonpath='{.data.KITE_ENCRYPT_KEY}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  else
+    echo -e "${YELLOW}[WARN]${NC} '${APP_SECRET}' no encontrado en namespace '${env}'."
+    echo -e "       Ejecutá primero: ./scripts/manage-secrets.sh setup ${env}"
   fi
 
+  # Priority 2: kite-credentials in observability namespace (auto-gen persistence from prior runs)
+  if kubectl get secret kite-credentials -n "${NAMESPACE}" &>/dev/null; then
+    [ -z "$KITE_ADMIN_PASSWORD" ] && KITE_ADMIN_PASSWORD=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    [ -z "$KITE_JWT_SECRET" ] && KITE_JWT_SECRET=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_JWT_SECRET}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    [ -z "$KITE_ENCRYPT_KEY" ] && KITE_ENCRYPT_KEY=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_ENCRYPT_KEY}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  fi
+
+  # Priority 3: auto-generate (last resort)
   local generated=false
 
   if [ -z "$KITE_ADMIN_PASSWORD" ]; then
-    if [ -n "${KITE_ADMIN_PASSWORD_K8S:-}" ]; then
-      KITE_ADMIN_PASSWORD="${KITE_ADMIN_PASSWORD_K8S}"
-    else
-      KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
-      generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD auto-generado (guardado en K8s secret)"
-    fi
+    KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD auto-generado (guardado en K8s secret)"
   fi
 
   if [ -z "$KITE_JWT_SECRET" ]; then
-    if [ -n "${KITE_JWT_SECRET_K8S:-}" ]; then
-      KITE_JWT_SECRET="${KITE_JWT_SECRET_K8S}"
-    else
-      KITE_JWT_SECRET=$(openssl rand -base64 32)
-      generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET auto-generado (guardado en K8s secret)"
-    fi
+    KITE_JWT_SECRET=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET auto-generado (guardado en K8s secret)"
   fi
 
   if [ -z "$KITE_ENCRYPT_KEY" ]; then
-    if [ -n "${KITE_ENCRYPT_KEY_K8S:-}" ]; then
-      KITE_ENCRYPT_KEY="${KITE_ENCRYPT_KEY_K8S}"
-    else
-      KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
-      generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY auto-generado (guardado en K8s secret)"
-    fi
+    KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
+    generated=true
+    echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY auto-generado (guardado en K8s secret)"
   fi
 
   if [ "$generated" = true ]; then
     echo -e "${YELLOW}[WARN]${NC} Credenciales Kite auto-generadas y persistidas en K8s secret 'kite-credentials'."
-    echo -e "       Para copiarlas a ${env_file}, ejecutá:"
+    echo -e "       Para persistirlas en .env, copialas desde K8s:"
     echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' | base64 -d"
     echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_JWT_SECRET}' | base64 -d"
     echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_ENCRYPT_KEY}' | base64 -d"
+    echo -e "       Luego ejecutá: ./scripts/manage-secrets.sh setup ${env}"
   fi
 
   # Persist generated secrets to K8s so they survive between script runs
@@ -330,11 +328,8 @@ show_status() {
   echo ""
 
   echo -e "${CYAN}── Access ──${NC}"
-  local GRAFANA_PASS
-  GRAFANA_PASS=$(kubectl get secret kube-prometheus-stack-grafana -n "${NAMESPACE}" \
-    -o jsonpath="{.data.admin-password}" 2>/dev/null | base64 -d 2>/dev/null || echo "unknown")
   echo "  Grafana:      kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n ${NAMESPACE}"
-  echo "                User: admin | Pass: ${GRAFANA_PASS}"
+  echo "                User: admin | Pass: kubectl get secret kube-prometheus-stack-grafana -n ${NAMESPACE} -o jsonpath='{.data.admin-password}' | base64 -d"
   echo "  Prometheus:   kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n ${NAMESPACE}"
   echo "  Alertmanager: kubectl port-forward svc/kube-prometheus-stack-alertmanager 9093:9093 -n ${NAMESPACE}"
   echo "  Kite:         kubectl port-forward svc/kite 8090:8090 -n ${NAMESPACE}"
