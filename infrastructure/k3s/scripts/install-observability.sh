@@ -28,7 +28,7 @@ NC='\033[0m'
 get_env_value() {
   local file="$1"
   local key="$2"
-  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2-
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- || true
 }
 
 urlencode() {
@@ -112,10 +112,15 @@ setup_postgres_exporter_secret() {
   PG_PASS_ENC=$(urlencode "$PG_PASS")
   local DSN="postgresql://${PG_USER_ENC}:${PG_PASS_ENC}@postgresql-svc.${env}.svc.cluster.local:5432/postgres?sslmode=disable"
 
-  kubectl create secret generic postgres-exporter-credentials \
-    --from-literal=DATA_SOURCE_NAME="${DSN}" \
-    -n "${NAMESPACE}" \
-    --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-exporter-credentials
+  namespace: ${NAMESPACE}
+stringData:
+  DATA_SOURCE_NAME: "${DSN}"
+EOF
 
   echo -e "${GREEN}[OK]${NC} Secret 'postgres-exporter-credentials' configurado"
 }
@@ -188,12 +193,23 @@ setup_kite_secret() {
   fi
 
   # Persist generated secrets to K8s so they survive between script runs
-  kubectl create secret generic kite-credentials \
-    --namespace "${NAMESPACE}" \
-    --from-literal=KITE_ADMIN_PASSWORD="${KITE_ADMIN_PASSWORD}" \
-    --from-literal=KITE_JWT_SECRET="${KITE_JWT_SECRET}" \
-    --from-literal=KITE_ENCRYPT_KEY="${KITE_ENCRYPT_KEY}" \
-    --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1 || true
+  if ! kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kite-credentials
+  namespace: ${NAMESPACE}
+stringData:
+  KITE_ADMIN_PASSWORD: "${KITE_ADMIN_PASSWORD}"
+  KITE_JWT_SECRET: "${KITE_JWT_SECRET}"
+  KITE_ENCRYPT_KEY: "${KITE_ENCRYPT_KEY}"
+EOF
+  then
+    echo -e "${RED}[ERROR]${NC} Failed to persist 'kite-credentials' to namespace '${NAMESPACE}'." >&2
+    echo -e "       KITE_ADMIN_PASSWORD, KITE_JWT_SECRET and KITE_ENCRYPT_KEY were NOT saved." >&2
+    echo -e "       Check that the namespace exists and you have RBAC permissions." >&2
+    exit 1
+  fi
 
   export KITE_ADMIN_PASSWORD
   export KITE_JWT_SECRET
@@ -275,15 +291,23 @@ install_charts() {
   if [ -f "$kite_overlay" ]; then
     KITE_EXTRA_VALUES="--values ${kite_overlay}"
   fi
+  local kite_secrets_file
+  kite_secrets_file=$(mktemp /tmp/kite-secrets-XXXXXX.yaml)
+  chmod 600 "$kite_secrets_file"
+  cat > "$kite_secrets_file" <<EOF
+superUser:
+  password: "${KITE_ADMIN_PASSWORD}"
+jwtSecret: "${KITE_JWT_SECRET}"
+encryptKey: "${KITE_ENCRYPT_KEY}"
+EOF
   helm upgrade --install kite kite/kite \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kite.yaml" \
     ${KITE_EXTRA_VALUES} \
-    --set superUser.password="${KITE_ADMIN_PASSWORD}" \
-    --set jwtSecret="${KITE_JWT_SECRET}" \
-    --set encryptKey="${KITE_ENCRYPT_KEY}" \
+    --values "${kite_secrets_file}" \
     --wait --timeout 3m \
     2>&1 | tail -3
+  rm -f "$kite_secrets_file"
   echo -e "  ${GREEN}[OK]${NC} kite dashboard"
 }
 
