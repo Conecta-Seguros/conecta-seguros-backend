@@ -31,8 +31,8 @@ NC='\033[0m'
 #   dockerfile_path  → Ruta al Dockerfile relativa al REPO ROOT
 #   context_path     → Ruta al build context relativa al REPO ROOT
 #
-# REPO ROOT se infiere como 4 niveles arriba de este script:
-#   scripts/ → k3s/ → infrastructure/ → conecta-seguros-backend/
+# REPO ROOT se infiere desde BASE_DIR (k3s/) subiendo 2 niveles:
+#   k3s/ → infrastructure/ → conecta-seguros-backend/
 # ============================================================================
 REPO_ROOT="$(cd "${BASE_DIR}/../.." && pwd)"
 
