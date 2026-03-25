@@ -157,7 +157,7 @@ setup_kite_secret() {
     else
       KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
       generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD generado: ${KITE_ADMIN_PASSWORD}"
+      echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD auto-generado (guardado en K8s secret)"
     fi
   fi
 
@@ -167,7 +167,7 @@ setup_kite_secret() {
     else
       KITE_JWT_SECRET=$(openssl rand -base64 32)
       generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET generado: ${KITE_JWT_SECRET}"
+      echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET auto-generado (guardado en K8s secret)"
     fi
   fi
 
@@ -177,15 +177,16 @@ setup_kite_secret() {
     else
       KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
       generated=true
-      echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY generado: ${KITE_ENCRYPT_KEY}"
+      echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY auto-generado (guardado en K8s secret)"
     fi
   fi
 
   if [ "$generated" = true ]; then
-    echo -e "${YELLOW}[WARN]${NC} Agregá los valores generados a: ${env_file}"
-    echo -e "       KITE_ADMIN_PASSWORD=..."
-    echo -e "       KITE_JWT_SECRET=..."
-    echo -e "       KITE_ENCRYPT_KEY=..."
+    echo -e "${YELLOW}[WARN]${NC} Credenciales Kite auto-generadas y persistidas en K8s secret 'kite-credentials'."
+    echo -e "       Para copiarlas a ${env_file}, ejecutá:"
+    echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' | base64 -d"
+    echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_JWT_SECRET}' | base64 -d"
+    echo -e "       kubectl get secret kite-credentials -n ${NAMESPACE} -o jsonpath='{.data.KITE_ENCRYPT_KEY}' | base64 -d"
   fi
 
   # Persist generated secrets to K8s so they survive between script runs
