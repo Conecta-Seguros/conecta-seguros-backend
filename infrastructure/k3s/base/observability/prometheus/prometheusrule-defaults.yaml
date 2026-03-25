@@ -251,8 +251,12 @@ spec:
             summary: "PVC {{ $labels.persistentvolumeclaim }} at {{ $value | humanizePercentage }}"
 
         - alert: KubeContainerOOMKilled
-          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
-          for: 0m
+          expr: |
+            (
+              increase(kube_pod_container_status_restarts_total[10m]) > 0
+            ) * on(namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          for: 1m
           labels:
             severity: warning
             component: kubernetes
