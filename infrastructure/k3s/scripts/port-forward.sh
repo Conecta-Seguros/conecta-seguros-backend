@@ -60,6 +60,14 @@ log_file() {
   echo "${LOG_DIR}/${name}.log"
 }
 
+# Returns true only if PID is alive AND its cmdline is a kubectl port-forward process
+is_kubectl_pf_pid() {
+  local pid="$1"
+  local cmdline
+  cmdline=$(ps -p "$pid" -o args= 2>/dev/null) || return 1
+  [[ "$cmdline" == *"kubectl"*"port-forward"* ]]
+}
+
 is_running() {
   local pf="$1"
   local pfile
@@ -67,7 +75,7 @@ is_running() {
   if [ -f "$pfile" ]; then
     local pid
     pid=$(cat "$pfile")
-    if kill -0 "$pid" 2>/dev/null; then
+    if kill -0 "$pid" 2>/dev/null && is_kubectl_pf_pid "$pid"; then
       return 0
     fi
     rm -f "$pfile"
@@ -165,10 +173,7 @@ cmd_start() {
         local_port=$(get_local_port "$svc")
         case "$name" in
           Grafana)
-            local pass
-            pass=$(kubectl get secret kube-prometheus-stack-grafana -n observability \
-              -o jsonpath="{.data.admin-password}" 2>/dev/null | base64 -d 2>/dev/null || echo "?")
-            echo -e "  ${GREEN}●${NC} ${name}:       http://localhost:${local_port}  (admin / ${pass})"
+            echo -e "  ${GREEN}●${NC} ${name}:       http://localhost:${local_port}  (admin / run: kubectl get secret kube-prometheus-stack-grafana -n observability -o jsonpath='{.data.admin-password}' | base64 -d)"
             ;;
           FusionAuth)
             echo -e "  ${GREEN}●${NC} ${name}:    http://localhost:${local_port}"
@@ -199,7 +204,10 @@ cmd_stop() {
     if is_running "$svc"; then
       local pid
       pid=$(cat "$(pid_file "$svc")")
-      kill "$pid" 2>/dev/null || true
+      # Re-verify before sending signal to guard against PID recycling (TOCTOU)
+      if is_kubectl_pf_pid "$pid"; then
+        kill "$pid" 2>/dev/null || true
+      fi
       rm -f "$(pid_file "$svc")"
       echo -e "  ${GREEN}[OK]${NC} ${name} (PID ${pid}) stopped"
       stopped=$((stopped + 1))
@@ -212,8 +220,16 @@ cmd_stop() {
     echo -e "  ${GREEN}${stopped} port-forward(s) stopped${NC}"
   fi
 
-  # Cleanup any orphaned kubectl port-forward processes
-  pkill -f "kubectl port-forward" 2>/dev/null || true
+  # Cleanup any orphaned port-forwards started by this script (PID files only — never pkill broadly)
+  for pfile in "${PID_DIR}"/*.pid; do
+    [ -f "$pfile" ] || continue
+    local orphan_pid
+    orphan_pid=$(cat "$pfile" 2>/dev/null) || continue
+    if kill -0 "$orphan_pid" 2>/dev/null && is_kubectl_pf_pid "$orphan_pid"; then
+      kill "$orphan_pid" 2>/dev/null || true
+    fi
+    rm -f "$pfile"
+  done
 }
 
 # ============================================================================
