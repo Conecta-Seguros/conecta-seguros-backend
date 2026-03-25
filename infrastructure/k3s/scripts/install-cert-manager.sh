@@ -31,7 +31,7 @@ NC='\033[0m'
 get_env_value() {
   local file="$1"
   local key="$2"
-  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2-
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- || true
 }
 
 resolve_cloudflare_token() {
