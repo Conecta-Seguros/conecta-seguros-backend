@@ -112,6 +112,16 @@ setup_kite_secret() {
 
   echo -e "${CYAN}[3b/6] Configurando credenciales de Kite...${NC}"
 
+  # Try to recover previously persisted secrets from K8s (survive between runs)
+  if kubectl get secret kite-credentials -n "${NAMESPACE}" &>/dev/null; then
+    KITE_ADMIN_PASSWORD_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_ADMIN_PASSWORD}' | base64 -d 2>/dev/null || true)
+    KITE_JWT_SECRET_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_JWT_SECRET}' | base64 -d 2>/dev/null || true)
+    KITE_ENCRYPT_KEY_K8S=$(kubectl get secret kite-credentials -n "${NAMESPACE}" \
+      -o jsonpath='{.data.KITE_ENCRYPT_KEY}' | base64 -d 2>/dev/null || true)
+  fi
+
   KITE_ADMIN_PASSWORD=""
   KITE_JWT_SECRET=""
   KITE_ENCRYPT_KEY=""
@@ -125,21 +135,33 @@ setup_kite_secret() {
   local generated=false
 
   if [ -z "$KITE_ADMIN_PASSWORD" ]; then
-    KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
-    generated=true
-    echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD generado: ${KITE_ADMIN_PASSWORD}"
+    if [ -n "${KITE_ADMIN_PASSWORD_K8S:-}" ]; then
+      KITE_ADMIN_PASSWORD="${KITE_ADMIN_PASSWORD_K8S}"
+    else
+      KITE_ADMIN_PASSWORD=$(openssl rand -base64 32)
+      generated=true
+      echo -e "${YELLOW}[WARN]${NC} KITE_ADMIN_PASSWORD generado: ${KITE_ADMIN_PASSWORD}"
+    fi
   fi
 
   if [ -z "$KITE_JWT_SECRET" ]; then
-    KITE_JWT_SECRET=$(openssl rand -base64 32)
-    generated=true
-    echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET generado: ${KITE_JWT_SECRET}"
+    if [ -n "${KITE_JWT_SECRET_K8S:-}" ]; then
+      KITE_JWT_SECRET="${KITE_JWT_SECRET_K8S}"
+    else
+      KITE_JWT_SECRET=$(openssl rand -base64 32)
+      generated=true
+      echo -e "${YELLOW}[WARN]${NC} KITE_JWT_SECRET generado: ${KITE_JWT_SECRET}"
+    fi
   fi
 
   if [ -z "$KITE_ENCRYPT_KEY" ]; then
-    KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
-    generated=true
-    echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY generado: ${KITE_ENCRYPT_KEY}"
+    if [ -n "${KITE_ENCRYPT_KEY_K8S:-}" ]; then
+      KITE_ENCRYPT_KEY="${KITE_ENCRYPT_KEY_K8S}"
+    else
+      KITE_ENCRYPT_KEY=$(openssl rand -base64 32)
+      generated=true
+      echo -e "${YELLOW}[WARN]${NC} KITE_ENCRYPT_KEY generado: ${KITE_ENCRYPT_KEY}"
+    fi
   fi
 
   if [ "$generated" = true ]; then
@@ -148,6 +170,14 @@ setup_kite_secret() {
     echo -e "       KITE_JWT_SECRET=..."
     echo -e "       KITE_ENCRYPT_KEY=..."
   fi
+
+  # Persist generated secrets to K8s so they survive between script runs
+  kubectl create secret generic kite-credentials \
+    --namespace "${NAMESPACE}" \
+    --from-literal=KITE_ADMIN_PASSWORD="${KITE_ADMIN_PASSWORD}" \
+    --from-literal=KITE_JWT_SECRET="${KITE_JWT_SECRET}" \
+    --from-literal=KITE_ENCRYPT_KEY="${KITE_ENCRYPT_KEY}" \
+    --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1 || true
 
   export KITE_ADMIN_PASSWORD
   export KITE_JWT_SECRET
