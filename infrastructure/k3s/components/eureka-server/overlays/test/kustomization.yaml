@@ -8,7 +8,7 @@ namespace: test
 
 labels:
   - pairs:
-      conecta.seguros/environment: test
+      caicedo.seguros/environment: test
 
 patches:
   - target:
