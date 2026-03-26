@@ -8,6 +8,7 @@ resources:
   - migration-job-template.yaml
   - db-maintenance-cronjob.yaml
   - cleanup-cronjob.yaml
+  - network-policies.yaml
 
 labels:
   - pairs:
