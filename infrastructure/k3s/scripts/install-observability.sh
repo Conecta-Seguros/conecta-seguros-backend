@@ -79,6 +79,18 @@ setup_namespace() {
     caicedo.seguros/environment="${env}" \
     caicedo.seguros/tier=infrastructure \
     --overwrite 2>/dev/null || true
+
+  # Sync application secrets so Grafana and other charts can find them
+  local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
+  if [ -f "$env_file" ]; then
+    kubectl create secret generic caicedo-seguros-secrets \
+      --from-env-file="$env_file" \
+      -n "${NAMESPACE}" \
+      --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null | tail -1
+    echo -e "${GREEN}[OK]${NC} caicedo-seguros-secrets synced to ${NAMESPACE}"
+  else
+    echo -e "${YELLOW}[WARN]${NC} .env not found at ${env_file} — caicedo-seguros-secrets NOT synced to ${NAMESPACE}"
+  fi
 }
 
 # ============================================================================

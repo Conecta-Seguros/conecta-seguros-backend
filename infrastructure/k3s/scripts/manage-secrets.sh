@@ -76,6 +76,20 @@ for k in sorted(data.keys()):
 " 2>/dev/null || true
 
   echo ""
+
+  # ── Sync to observability namespace ──
+  # Observability (Grafana, Prometheus) needs these secrets too.
+  # If the namespace exists, sync. If not, it will be synced on the next run
+  # after install-observability.sh creates it.
+  if kubectl get namespace "observability" &>/dev/null; then
+    kubectl create secret generic "${SECRET_NAME}" \
+      --from-env-file="${env_file}" \
+      -n "observability" \
+      --dry-run=client -o yaml | kubectl apply -f - &>/dev/null
+    echo -e "${GREEN}[OK]${NC} Secret '${SECRET_NAME}' synced to 'observability'"
+  else
+    echo -e "${YELLOW}[INFO]${NC} Namespace 'observability' not found — sync skipped (run deploy again after observability is initialized)"
+  fi
 }
 
 # ============================================================================
