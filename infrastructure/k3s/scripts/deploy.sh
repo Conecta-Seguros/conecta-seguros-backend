@@ -248,13 +248,40 @@ cmd_deploy() {
   fi
 
   # ── 1. Platform cluster-wide ──
-  step "1/9" "Platform (cluster-wide: namespaces, storageclasses, clusterroles)"
+  step "1/9" "Platform (cluster-wide: namespaces, storageclasses, clusterroles, ingress-nginx)"
 
   cd "$BASE_DIR"
   kubectl apply -k base/ 2>&1 | while read -r line; do
     echo "  $line"
   done
   ok "Platform cluster-wide applied"
+
+  # ── ingress-nginx: security headers (idempotent) ──
+  if kubectl get namespace ingress-nginx &>/dev/null; then
+    kubectl apply -k base/ingress-nginx/ 2>&1 | while read -r line; do
+      echo "  $line"
+    done
+
+    local current_headers
+    current_headers=$(kubectl get configmap ingress-nginx-controller \
+      -n ingress-nginx -o jsonpath='{.data.add-headers}' 2>/dev/null || true)
+
+    if [ "$current_headers" != "ingress-nginx/security-headers" ]; then
+      echo -e "  Configuring global security headers..."
+      kubectl patch configmap ingress-nginx-controller -n ingress-nginx \
+        --type=merge -p '{"data":{"add-headers":"ingress-nginx/security-headers"}}' \
+        2>&1 | while read -r line; do echo "  $line"; done
+      kubectl rollout restart deployment/ingress-nginx-controller -n ingress-nginx \
+        2>/dev/null || true
+      kubectl rollout status deployment/ingress-nginx-controller \
+        -n ingress-nginx --timeout=60s 2>&1 | while read -r line; do echo "  $line"; done
+      ok "ingress-nginx security headers configured"
+    else
+      ok "ingress-nginx security headers already configured"
+    fi
+  else
+    warn "ingress-nginx namespace not found — skipping security headers"
+  fi
 
   # ── 2. Platform namespace-scoped ──
   step "2/9" "Platform namespace-scoped (quotas, policies, RBAC) → ${env}"
