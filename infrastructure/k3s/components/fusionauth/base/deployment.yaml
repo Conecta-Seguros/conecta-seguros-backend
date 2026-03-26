@@ -200,6 +200,8 @@ spec:
               mountPath: /usr/local/fusionauth/data
             - name: fusionauth-logs
               mountPath: /usr/local/fusionauth/logs
+            - name: fusionauth-java
+              mountPath: /usr/local/fusionauth/java
 
       volumes:
         - name: kickstart
@@ -211,3 +213,6 @@ spec:
         - name: fusionauth-logs
           emptyDir:
             sizeLimit: 256Mi
+        - name: fusionauth-java
+          emptyDir:
+            sizeLimit: 512Mi
