@@ -66,7 +66,7 @@ spec:
 
         - name: copy-jdk-security
           image: fusionauth/fusionauth-app:1.62.1
-          command: ['sh', '-c', 'cp -rp /opt/openjdk/conf/security/. /jdk-security-rw/']
+          command: ['sh', '-c', 'cp -r /opt/openjdk/conf/security/. /jdk-security-rw/']
           volumeMounts:
             - name: jdk-security-rw
               mountPath: /jdk-security-rw
