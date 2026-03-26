@@ -31,9 +31,6 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
@@ -185,9 +182,6 @@ spec:
             failureThreshold: 5
 
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
@@ -200,8 +194,6 @@ spec:
               mountPath: /usr/local/fusionauth/data
             - name: fusionauth-logs
               mountPath: /usr/local/fusionauth/logs
-            - name: fusionauth-java
-              mountPath: /usr/local/fusionauth/java
 
       volumes:
         - name: kickstart
@@ -213,6 +205,3 @@ spec:
         - name: fusionauth-logs
           emptyDir:
             sizeLimit: 256Mi
-        - name: fusionauth-java
-          emptyDir:
-            sizeLimit: 512Mi
