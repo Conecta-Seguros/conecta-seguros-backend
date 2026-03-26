@@ -162,8 +162,6 @@ prometheus-node-exporter:
   service:
     port: 9500
     targetPort: 9500
-  extraArgs:
-    - --web.listen-address=:9500
 
   resources:
     requests:
