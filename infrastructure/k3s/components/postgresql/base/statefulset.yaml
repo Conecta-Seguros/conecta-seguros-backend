@@ -42,12 +42,7 @@ spec:
             - |
               PGDATA="/var/lib/postgresql/data/pgdata"
 
-              # Fix data directory ownership
-              chown -R 999:999 /var/lib/postgresql/data || true
-
-              # Fix run directory permissions
-              chown 999:999 /var/run/postgresql || true
-              chmod 775 /var/run/postgresql || true
+              # Note: chown/chmod not needed — pod fsGroup:999 handles volume ownership recursively
 
               # If existing data directory, ensure include_dir is configured
               if [ -f "$PGDATA/postgresql.conf" ]; then
@@ -63,8 +58,12 @@ spec:
                 echo "[setup-config] No existing data — first boot, init scripts will configure"
               fi
           securityContext:
-            runAsUser: 0
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               cpu: 50m
