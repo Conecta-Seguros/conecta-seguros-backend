@@ -159,6 +159,13 @@ nodeExporter:
   enabled: true
 
 prometheus-node-exporter:
+  # Port 9100 conflicts with an existing process on the host — using 9200
+  service:
+    port: 9200
+    targetPort: 9200
+  extraArgs:
+    - --web.listen-address=:9200
+
   resources:
     requests:
       cpu: 25m
