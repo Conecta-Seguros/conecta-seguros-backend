@@ -64,6 +64,24 @@ spec:
               drop: ["ALL"]
             readOnlyRootFilesystem: true
 
+        - name: copy-jdk-security
+          image: fusionauth/fusionauth-app:1.62.1
+          command: ['sh', '-c', 'cp -rp /opt/openjdk/conf/security/. /jdk-security-rw/']
+          volumeMounts:
+            - name: jdk-security-rw
+              mountPath: /jdk-security-rw
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+
       containers:
         - name: fusionauth
           image: fusionauth/fusionauth-app:1.62.1
@@ -194,6 +212,10 @@ spec:
               mountPath: /usr/local/fusionauth/data
             - name: fusionauth-logs
               mountPath: /usr/local/fusionauth/logs
+            - name: jdk-security-rw
+              mountPath: /opt/openjdk/conf/security
+            - name: fusionauth-java
+              mountPath: /usr/local/fusionauth/java
 
       volumes:
         - name: kickstart
@@ -205,3 +227,9 @@ spec:
         - name: fusionauth-logs
           emptyDir:
             sizeLimit: 256Mi
+        - name: jdk-security-rw
+          emptyDir:
+            sizeLimit: 32Mi
+        - name: fusionauth-java
+          emptyDir:
+            sizeLimit: 512Mi
