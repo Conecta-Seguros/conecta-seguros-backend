@@ -84,9 +84,10 @@ validate_env_file() {
 
   # Variables explicitly allowed to be empty (optional / empty = default behavior)
   local -a OPTIONAL_VARS=(
-    EUREKA_PEER_URLS          # empty = standalone mode (no HA clustering)
-    EUREKA_PREFER_IP_ADDRESS  # empty = uses hostname (Spring default)
-    EUREKA_ZONE               # empty = defaultZone (Spring default)
+    EUREKA_PEER_URLS           # empty = standalone mode (no HA clustering)
+    EUREKA_PREFER_IP_ADDRESS   # empty = uses hostname (Spring default)
+    EUREKA_ZONE                # empty = defaultZone (Spring default)
+    CLOUDFLARE_TUNNEL_TOKEN    # empty = cloudflared will not connect (warn, don't fail)
   )
 
   echo -e "  Validating secrets file..."
@@ -201,7 +202,7 @@ cmd_deploy() {
   safety_gate "$env"
 
   # ── 0. Preflight checks ──
-  step "0/9" "Preflight checks"
+  step "0/11" "Preflight checks"
 
   if ! kubectl cluster-info &>/dev/null; then
     fail "Cannot connect to cluster"
@@ -248,7 +249,7 @@ cmd_deploy() {
   fi
 
   # ── 1. Platform cluster-wide ──
-  step "1/9" "Platform (cluster-wide: namespaces, storageclasses, clusterroles, ingress-nginx)"
+  step "1/11" "Platform (cluster-wide: namespaces, storageclasses, clusterroles, ingress-nginx)"
 
   cd "$BASE_DIR"
   kubectl apply -k base/ 2>&1 | while read -r line; do
@@ -284,7 +285,7 @@ cmd_deploy() {
   fi
 
   # ── 2. Platform namespace-scoped ──
-  step "2/9" "Platform namespace-scoped (quotas, policies, RBAC) → ${env}"
+  step "2/11" "Platform namespace-scoped (quotas, policies, RBAC) → ${env}"
 
   if [ -d "overlays/${env}/platform" ]; then
     kubectl apply -k "overlays/${env}/platform/" 2>&1 | while read -r line; do
@@ -295,13 +296,45 @@ cmd_deploy() {
     warn "No platform overlay for ${env}, skipping"
   fi
 
-  # ── 3. Secrets ──
-  step "3/9" "Secrets → ${env}"
+  # ── 3. Cloudflare Tunnel (cloudflared) ──
+  step "3/11" "Cloudflare Tunnel (cloudflared) → cloudflare-tunnel namespace"
+
+  kubectl apply -k "${BASE_DIR}/components/cloudflared/base/" 2>&1 | while read -r line; do
+    echo "  $line"
+  done
+  ok "cloudflared namespace and deployment applied"
+
+  # ── 4. Secrets ──
+  step "4/11" "Secrets → ${env}"
 
   "${SCRIPT_DIR}/manage-secrets.sh" setup "$env"
 
-  # ── 4. Observability Helm ──
-  step "4/9" "Observability (Helm charts) → observability namespace"
+  # ── 5. cert-manager ClusterIssuers and wildcard Certificates ──
+  step "5/11" "cert-manager (ClusterIssuers + wildcard Certificates) → ${env}"
+
+  # Apply cluster-wide ClusterIssuers (letsencrypt-staging, letsencrypt-production, letsencrypt-prod)
+  if kubectl get namespace cert-manager &>/dev/null; then
+    kubectl apply -k "base/ingress/" 2>&1 | while read -r line; do
+      echo "  $line"
+    done
+    ok "ClusterIssuers applied"
+
+    # Apply per-namespace wildcard Certificate resources for this environment
+    if [ -d "overlays/${env}/cert-manager" ]; then
+      kubectl apply -k "overlays/${env}/cert-manager/" 2>&1 | while read -r line; do
+        echo "  $line"
+      done
+      ok "Wildcard Certificates applied for ${env}"
+    else
+      warn "No cert-manager overlay for ${env}, skipping wildcard certificates"
+    fi
+  else
+    warn "cert-manager namespace not found — skipping ClusterIssuers and wildcard certificates"
+    warn "Install cert-manager first: https://cert-manager.io/docs/installation/"
+  fi
+
+  # ── 6. Observability Helm ──
+  step "6/11" "Observability (Helm charts) → observability namespace"
 
   if [ -f "${SCRIPT_DIR}/install-observability.sh" ]; then
     echo -e "  Running install-observability.sh upgrade ${env}..."
@@ -317,8 +350,8 @@ cmd_deploy() {
     warn "install-observability.sh not found, skipping"
   fi
 
-  # ── 5. PostgreSQL ──
-  step "5/9" "PostgreSQL → ${env}"
+  # ── 7. PostgreSQL ──
+  step "7/11" "PostgreSQL → ${env}"
 
   if [ -d "components/postgresql/overlays/${env}" ]; then
     kubectl apply -k "components/postgresql/overlays/${env}/" 2>&1 | while read -r line; do
@@ -339,8 +372,8 @@ cmd_deploy() {
     warn "No PostgreSQL overlay for ${env}, skipping"
   fi
 
-  # ── 6. Eureka Server ──
-  step "6/9" "Eureka Server → ${env}"
+  # ── 8. Eureka Server ──
+  step "8/11" "Eureka Server → ${env}"
 
   if [ -d "components/eureka-server/overlays/${env}" ]; then
     kubectl apply -k "components/eureka-server/overlays/${env}/" 2>&1 | while read -r line; do
@@ -351,8 +384,8 @@ cmd_deploy() {
     warn "No Eureka Server overlay for ${env}, skipping"
   fi
 
-  # ── 7. FusionAuth ──
-  step "7/9" "FusionAuth → ${env}"
+  # ── 9. FusionAuth ──
+  step "9/11" "FusionAuth → ${env}"
 
   if [ -d "components/fusionauth/overlays/${env}" ]; then
     kubectl apply -k "components/fusionauth/overlays/${env}/" 2>&1 | while read -r line; do
@@ -363,8 +396,8 @@ cmd_deploy() {
     warn "No FusionAuth overlay for ${env}, skipping"
   fi
 
-  # ── 8. Jobs ──
-  step "8/9" "Jobs (backup, maintenance) → ${env}"
+  # ── 10. Jobs ──
+  step "10/11" "Jobs (backup, maintenance) → ${env}"
 
   if [ -d "overlays/${env}/jobs" ]; then
     kubectl apply -k "overlays/${env}/jobs/" 2>&1 | while read -r line; do
@@ -375,8 +408,8 @@ cmd_deploy() {
     warn "No jobs overlay for ${env}, skipping"
   fi
 
-  # ── 9. Observability CRDs ──
-  step "9/9" "Observability CRDs (custom ServiceMonitors, Rules)"
+  # ── 11. Observability CRDs ──
+  step "11/11" "Observability CRDs (custom ServiceMonitors, Rules)"
 
   if [ -d "overlays/${env}/observability" ] && \
      [ -f "overlays/${env}/observability/kustomization.yaml" ]; then
@@ -420,6 +453,10 @@ cmd_status() {
   kubectl get pods -n observability --no-headers 2>/dev/null | head -12 || echo "  No pods"
   echo ""
 
+  echo -e "${CYAN}── Pods (cloudflare-tunnel) ──${NC}"
+  kubectl get pods -n cloudflare-tunnel --no-headers 2>/dev/null || echo "  No pods"
+  echo ""
+
   echo -e "${CYAN}── Services (${env}) ──${NC}"
   kubectl get svc -n "$env" 2>/dev/null || echo "  No services"
   echo ""
@@ -460,9 +497,9 @@ cmd_status() {
   if [ "$env" = "test" ] || [ "$env" = "production" ]; then
     case "$env" in
       test)
-        echo "  FusionAuth:   https://auth-test.caicedoseguros.com"
+        echo "  FusionAuth:   https://auth.test.caicedoseguros.com"
         echo "  Grafana:      https://grafana.test.caicedoseguros.com"
-        echo "  Kite:         https://kite.test.caicedoseguros.com"
+        echo "  Kite:         https://infra.test.caicedoseguros.com"
         ;;
       production)
         echo "  FusionAuth:   https://auth.caicedoseguros.com"
@@ -523,6 +560,8 @@ cmd_destroy() {
     kubectl delete -k "components/eureka-server/overlays/${env}/" --ignore-not-found 2>/dev/null || true
   [ -d "components/postgresql/overlays/${env}" ] && \
     kubectl delete -k "components/postgresql/overlays/${env}/" --ignore-not-found 2>/dev/null || true
+  [ -d "components/cloudflared/base" ] && \
+    kubectl delete -k "components/cloudflared/base/" --ignore-not-found 2>/dev/null || true
   [ -d "overlays/${env}/platform" ] && \
     kubectl delete -k "overlays/${env}/platform/" --ignore-not-found 2>/dev/null || true
 
@@ -559,7 +598,7 @@ cmd_destroy() {
 usage() {
   echo "Usage: $0 {deploy|status|destroy} <environment>"
   echo ""
-  echo "  deploy   Deploy full environment (ordered, 9 steps)"
+  echo "  deploy   Deploy full environment (ordered, 11 steps)"
   echo "  status   Show environment status"
   echo "  destroy  Delete all resources"
   echo ""

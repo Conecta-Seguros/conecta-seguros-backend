@@ -20,6 +20,66 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # ============================================================================
+# CLOUDFLARE SECRET (cluster-wide, cert-manager namespace)
+# ============================================================================
+# Syncs CLOUDFLARE_API_TOKEN from .env to cert-manager namespace.
+# cert-manager uses this secret for DNS-01 wildcard certificate challenges.
+# The secret is cluster-scoped: one sync regardless of environment.
+sync_cloudflare_secret() {
+  local env_file="$1"
+
+  local token
+  token=$(grep '^CLOUDFLARE_API_TOKEN=' "$env_file" | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+
+  if [ -z "$token" ]; then
+    echo -e "${YELLOW}[SKIP]${NC} CLOUDFLARE_API_TOKEN not set in .env — DNS-01 wildcard certificates will not work"
+    return 0
+  fi
+
+  if ! kubectl get namespace cert-manager &>/dev/null; then
+    echo -e "${YELLOW}[SKIP]${NC} Namespace 'cert-manager' not found — Cloudflare secret sync skipped"
+    return 0
+  fi
+
+  kubectl create secret generic cloudflare-api-token \
+    --from-literal=api-token="${token}" \
+    -n cert-manager \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  echo -e "${GREEN}[OK]${NC} Cloudflare API token synced to 'cert-manager' (secret: cloudflare-api-token)"
+}
+
+# ============================================================================
+# CLOUDFLARE TUNNEL SECRET (cloudflare-tunnel namespace)
+# ============================================================================
+# Syncs CLOUDFLARE_TUNNEL_TOKEN from .env to cloudflare-tunnel namespace.
+# cloudflared uses this secret to authenticate the tunnel with Cloudflare Zero Trust.
+# The secret is cluster-scoped: one tunnel deployment regardless of environment.
+sync_cloudflare_tunnel_secret() {
+  local env_file="$1"
+
+  local token
+  token=$(grep '^CLOUDFLARE_TUNNEL_TOKEN=' "$env_file" | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+
+  if [ -z "$token" ]; then
+    echo -e "${YELLOW}[SKIP]${NC} CLOUDFLARE_TUNNEL_TOKEN not set in .env — cloudflared tunnel will not start"
+    return 0
+  fi
+
+  if ! kubectl get namespace cloudflare-tunnel &>/dev/null; then
+    echo -e "${YELLOW}[SKIP]${NC} Namespace 'cloudflare-tunnel' not found — apply components/cloudflared/base/ first"
+    return 0
+  fi
+
+  kubectl create secret generic cloudflared-token \
+    --from-literal=token="${token}" \
+    -n cloudflare-tunnel \
+    --dry-run=client -o yaml | kubectl apply -f -
+
+  echo -e "${GREEN}[OK]${NC} Cloudflare Tunnel token synced to 'cloudflare-tunnel' (secret: cloudflared-token)"
+}
+
+# ============================================================================
 # SETUP (CREATE OR UPDATE)
 # ============================================================================
 cmd_setup() {
@@ -49,6 +109,12 @@ cmd_setup() {
   if grep -q 'CAMBIAR_AQUI' "$env_file" 2>/dev/null; then
     echo -e "${YELLOW}[WARN]${NC} Found 'CAMBIAR_AQUI' placeholders in .env — replace before production"
   fi
+
+  # ── Sync Cloudflare API token to cert-manager namespace (DNS-01 wildcard SSL) ──
+  sync_cloudflare_secret "$env_file"
+
+  # ── Sync Cloudflare Tunnel token to cloudflare-tunnel namespace ──
+  sync_cloudflare_tunnel_secret "$env_file"
 
   # Create/update secret (IDEMPOTENT: --dry-run=client | kubectl apply)
   echo -e "${CYAN}Creating/updating secret '${SECRET_NAME}' in namespace '${env}'...${NC}"
