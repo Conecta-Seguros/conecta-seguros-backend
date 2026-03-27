@@ -238,6 +238,51 @@ EOF
 }
 
 # ============================================================================
+# HELM UPGRADE WITH PROGRESS
+# ============================================================================
+helm_upgrade_with_progress() {
+  local release=$1
+  shift  # remaining args go to helm
+
+  local tmpfile
+  tmpfile=$(mktemp /tmp/helm-${release}-XXXXXX.log)
+  local start_time
+  start_time=$(date +%s)
+
+  # Run helm in background, capture output
+  helm upgrade --install "$release" "$@" >"$tmpfile" 2>&1 &
+  local helm_pid=$!
+
+  # Show elapsed time while waiting
+  printf "  → %s" "$release"
+  while kill -0 "$helm_pid" 2>/dev/null; do
+    local elapsed=$(( $(date +%s) - start_time ))
+    printf "\r  → %-35s %ds elapsed" "$release..." "$elapsed"
+    sleep 2
+  done
+
+  # Capture exit code
+  wait "$helm_pid"
+  local exit_code=$?
+  local elapsed=$(( $(date +%s) - start_time ))
+
+  if [ "$exit_code" -eq 0 ]; then
+    printf "\r  ${GREEN}[OK]${NC} %-35s (%ds)\n" "$release" "$elapsed"
+  else
+    printf "\r  ${RED}[FAILED]${NC} %-30s (%ds)\n" "$release" "$elapsed"
+    echo ""
+    echo "  ── Helm output ──"
+    sed 's/^/  /' "$tmpfile"
+    echo "  ── End of output ──"
+    rm -f "$tmpfile"
+    return 1
+  fi
+
+  rm -f "$tmpfile"
+  return 0
+}
+
+# ============================================================================
 # HELM INSTALLS
 # ============================================================================
 install_charts() {
@@ -252,59 +297,43 @@ install_charts() {
   fi
 
   # --- kube-prometheus-stack ---
-  echo -e "  → kube-prometheus-stack..."
-  helm upgrade --install kube-prometheus-stack \
+  helm_upgrade_with_progress kube-prometheus-stack \
     prometheus-community/kube-prometheus-stack \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kube-prometheus-stack.yaml" \
     --set commonLabels."caicedo\.seguros/environment"="${env}" \
-    --wait --timeout 10m \
-    2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} kube-prometheus-stack"
+    --wait --timeout 5m
 
   # --- Loki ---
-  echo -e "  → loki..."
-  helm upgrade --install loki \
+  helm_upgrade_with_progress loki \
     grafana/loki \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/loki.yaml" \
-    --wait --timeout 5m \
-    2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} loki"
+    --wait --timeout 3m
 
   # --- Promtail ---
-  echo -e "  → promtail..."
-  helm upgrade --install promtail \
+  helm_upgrade_with_progress promtail \
     grafana/promtail \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/promtail.yaml" \
-    --wait --timeout 5m \
-    2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} promtail"
+    --wait --timeout 2m
 
   # --- Blackbox Exporter ---
-  echo -e "  → blackbox-exporter..."
-  helm upgrade --install blackbox-exporter \
+  helm_upgrade_with_progress blackbox-exporter \
     prometheus-community/prometheus-blackbox-exporter \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/blackbox-exporter.yaml" \
-    --wait --timeout 3m \
-    2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} blackbox-exporter"
+    --wait --timeout 2m
 
   # --- Postgres Exporter ---
-  echo -e "  → postgres-exporter..."
-  helm upgrade --install postgres-exporter \
+  helm_upgrade_with_progress postgres-exporter \
     prometheus-community/prometheus-postgres-exporter \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/postgres-exporter.yaml" \
-    --timeout 3m \
-    2>&1 | tail -3
-  echo -e "  ${GREEN}[OK]${NC} postgres-exporter (may CrashLoop until PostgreSQL is ready)"
+    --wait --timeout 2m
 
   # --- Kite Dashboard ---
   setup_kite_secret "$env"
-  echo -e "  → kite dashboard..."
   KITE_EXTRA_VALUES=""
   local kite_overlay="${BASE_DIR}/overlays/${env}/observability/helm-values/kite-${env}-overrides.yaml"
   if [ -f "$kite_overlay" ]; then
@@ -319,15 +348,13 @@ superUser:
 jwtSecret: "${KITE_JWT_SECRET}"
 encryptKey: "${KITE_ENCRYPT_KEY}"
 EOF
-  helm upgrade --install kite kite/kite \
+  helm_upgrade_with_progress kite kite/kite \
     --namespace "${NAMESPACE}" \
     --values "${BASE_VALUES}/kite.yaml" \
     ${KITE_EXTRA_VALUES} \
     --values "${kite_secrets_file}" \
-    --wait --timeout 3m \
-    2>&1 | tail -3
+    --wait --timeout 2m
   rm -f "$kite_secrets_file"
-  echo -e "  ${GREEN}[OK]${NC} kite dashboard"
 }
 
 # ============================================================================
