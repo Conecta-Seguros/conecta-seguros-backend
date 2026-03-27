@@ -80,6 +80,12 @@ setup_namespace() {
     caicedo.seguros/tier=infrastructure \
     --overwrite 2>/dev/null || true
 
+  # Apply NetworkPolicies for the observability namespace
+  kubectl apply -k "${BASE_DIR}/base/observability/network-policies/" 2>&1 | while read -r line; do
+    echo "  $line"
+  done
+  echo -e "${GREEN}[OK]${NC} NetworkPolicies applied to ${NAMESPACE}"
+
   # Sync application secrets so Grafana and other charts can find them
   local env_file="${BASE_DIR}/overlays/${env}/secrets/.env"
   if [ -f "$env_file" ]; then

@@ -8,3 +8,4 @@ resources:
   - allow-monitoring.yaml
   - allow-ingress-controller.yaml
   - allow-external-egress.yaml
+  - allow-cloudflare-tunnel.yaml
