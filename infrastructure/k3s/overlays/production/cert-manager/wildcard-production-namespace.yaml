@@ -1,0 +1,36 @@
+# =============================================================
+# Wildcard Certificate — production namespace
+# Covers: *.caicedoseguros.com (auth, api, etc.)
+# Used by: FusionAuth ingress (secretName: wildcard-production-tls)
+# =============================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-production-tls
+  namespace: production
+  labels:
+    app.kubernetes.io/name: wildcard-production-tls
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/part-of: ingress-stack
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+    caicedo.seguros/environment: production
+spec:
+  secretName: wildcard-production-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  renewBefore: 720h
+  duration: 2160h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  dnsNames:
+    - "caicedoseguros.com"
+    - "*.caicedoseguros.com"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  revisionHistoryLimit: 3

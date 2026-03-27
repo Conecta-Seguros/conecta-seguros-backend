@@ -1,0 +1,37 @@
+# =============================================================
+# Wildcard Certificate — observability namespace (production)
+# Covers: *.caicedoseguros.com (grafana, kite, etc.)
+# Used by: Grafana ingress and Kite ingress
+#          (secretName: wildcard-production-observability-tls)
+# =============================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-production-observability-tls
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: wildcard-production-observability-tls
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/part-of: ingress-stack
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+    caicedo.seguros/environment: production
+spec:
+  secretName: wildcard-production-observability-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  renewBefore: 720h
+  duration: 2160h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  dnsNames:
+    - "caicedoseguros.com"
+    - "*.caicedoseguros.com"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  revisionHistoryLimit: 3
