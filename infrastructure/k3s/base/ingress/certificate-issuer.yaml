@@ -82,3 +82,37 @@ spec:
                 priorityClassName: system-cluster-critical
                 nodeSelector:
                   kubernetes.io/os: linux
+---
+# =============================================================
+# DNS-01 Wildcard Issuer - Cloudflare DNS-01 for wildcard certs
+# =============================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/name: cert-manager-issuer
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/part-of: ingress-stack
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: caicedosegurosaxm@gmail.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    preferredChain: "ISRG Root X1"
+    solvers:
+      # DNS-01 solver — required for wildcard certificates (*.subdomain.caicedoseguros.com).
+      # Resolves ACME DNS challenges via Cloudflare API.
+      # Requires a Kubernetes Secret named "cloudflare-api-token" in the cert-manager
+      # namespace with key "api-token" containing a Cloudflare API token with
+      # Zone:DNS:Edit and Zone:Zone:Read permissions for the caicedoseguros.com zone.
+      # Create or update it via:
+      #   ./scripts/manage-secrets.sh setup <env>   (syncs CLOUDFLARE_API_TOKEN from .env)
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
