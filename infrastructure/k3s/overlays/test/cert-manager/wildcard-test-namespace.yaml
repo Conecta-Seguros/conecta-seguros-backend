@@ -1,0 +1,36 @@
+# =============================================================
+# Wildcard Certificate — test namespace
+# Covers: *.test.caicedoseguros.com (auth, grafana, infra, etc.)
+# Used by: FusionAuth ingress (secretName: wildcard-test-tls)
+# =============================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-test-tls
+  namespace: test
+  labels:
+    app.kubernetes.io/name: wildcard-test-tls
+    app.kubernetes.io/component: tls
+    app.kubernetes.io/part-of: ingress-stack
+    app.kubernetes.io/managed-by: kustomize
+    caicedo.seguros/tier: infrastructure
+    caicedo.seguros/environment: test
+spec:
+  secretName: wildcard-test-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  renewBefore: 720h
+  duration: 2160h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  dnsNames:
+    - "test.caicedoseguros.com"
+    - "*.test.caicedoseguros.com"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  revisionHistoryLimit: 3
