@@ -1,5 +1,5 @@
 # Kite test environment overrides
-# Adds ingress for external access at infra.test.caicedoseguros.com
+# Adds ingress for external access at kite-test.caicedoseguros.com
 
 ingress:
   enabled: true
@@ -9,13 +9,13 @@ ingress:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
   hosts:
-    - host: infra.test.caicedoseguros.com
+    - host: kite-test.caicedoseguros.com
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: wildcard-test-observability-tls
       hosts:
-        - infra.test.caicedoseguros.com
+        - kite-test.caicedoseguros.com
 
-host: "https://infra.test.caicedoseguros.com"
+host: "https://kite-test.caicedoseguros.com"

@@ -1,7 +1,9 @@
 # =============================================================
 # Wildcard Certificate — observability namespace
-# Covers: *.test.caicedoseguros.com (grafana, kite, etc.)
-# Used by: Grafana ingress and Kite ingress
+# Covers: *.test.caicedoseguros.com (internal routing)
+# NOTE: Public hostnames grafana-test and kite-test.caicedoseguros.com
+#       are covered by Cloudflare Universal SSL (*.caicedoseguros.com).
+#       This cert is kept for internal cluster TLS if needed.
 #          (secretName: wildcard-test-observability-tls)
 # =============================================================
 apiVersion: cert-manager.io/v1

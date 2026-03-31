@@ -497,9 +497,9 @@ cmd_status() {
   if [ "$env" = "test" ] || [ "$env" = "production" ]; then
     case "$env" in
       test)
-        echo "  FusionAuth:   https://auth.test.caicedoseguros.com"
-        echo "  Grafana:      https://grafana.test.caicedoseguros.com"
-        echo "  Kite:         https://infra.test.caicedoseguros.com"
+        echo "  FusionAuth:   https://auth-test.caicedoseguros.com"
+        echo "  Grafana:      https://grafana-test.caicedoseguros.com"
+        echo "  Kite:         https://infra-test.caicedoseguros.com"
         ;;
       production)
         echo "  FusionAuth:   https://auth.caicedoseguros.com"

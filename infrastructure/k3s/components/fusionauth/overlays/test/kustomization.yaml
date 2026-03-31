@@ -45,13 +45,13 @@ patches:
     patch: |
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: auth.test.caicedoseguros.com
+        value: auth-test.caicedoseguros.com
       - op: replace
         path: /spec/tls/0/secretName
         value: wildcard-test-tls
       - op: replace
         path: /spec/rules/0/host
-        value: auth.test.caicedoseguros.com
+        value: auth-test.caicedoseguros.com
       - op: add
         path: /metadata/annotations/cert-manager.io~1cluster-issuer
         value: letsencrypt-prod
